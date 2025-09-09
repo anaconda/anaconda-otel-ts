@@ -21,4 +21,4 @@ runs:
       - name: Run TypeScript tests
         shell: bash
         working-directory: .
-        run: bash run-tests.sh
+        run: npm run coverage
