@@ -1,0 +1,32 @@
+name: Typescript Integration Tests
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test Typescript ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['24.x']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+
+      - name: Run Integration Tests
+        uses: ./.github/actions/typescript/integration-tests
+        with:
+          node-version: ${{ matrix.python-version }}
+          otel-prod-token: ${{ secrets.OTEL_PROD_TOKEN }}
+          otel-prod-endpoint: ${{ secrets.OTEL_PROD_ENDPOINT }}
+
+  test-all:
+    name: All tests passed
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: All tests passed
+        run: echo "All integration tests passed successfully!"

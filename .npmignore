@@ -1,6 +1,9 @@
 # Source files (not needed in published package if you ship compiled JS)
 src/
 
+# ignore for packaging
+package-lock.json
+
 # TypeScript config
 tsconfig.json
 tsconfig.test.json

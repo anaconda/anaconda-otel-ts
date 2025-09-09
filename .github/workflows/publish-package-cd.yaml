@@ -1,0 +1,113 @@
+name: "[CICD] anaconda-opentelemetry"
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-anaconda-opentelemetry:
+    runs-on: [self-hosted-default]
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      with:
+        fetch-depth: 0
+        fetch-tags: true
+        persist-credentials: false
+
+    - name: Setup miniconda
+      uses: conda-incubator/setup-miniconda@835234971496cad1653abb28a638a281cf32541f # v3.2.0
+      with:
+        channels: defaults
+
+    - name: Install dependencies
+      run: conda install conda-build conda-package-handling -q
+
+    - name: Build
+      run: |
+        set -ex
+        bash ./write_version.sh
+        conda build ./python/conda-recipe --output-folder ./dist --no-test --extra-meta "sha=${GITHUB_SHA}" "remote_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" "flow_run_id=${GITHUB_RUN_ID}"
+        cph transmute --out-folder ./dist/noarch ./dist/noarch/anaconda-opentelemetry*.tar.bz2 .conda
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: package
+        path: ./dist/noarch/anaconda-opentelemetry*.conda
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+
+      - name: Run Unit Tests
+        uses: ./.github/actions/python/unit-tests/
+        with:
+          python-version: ${{ matrix.python-version }}
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.13']  # don't need to send multiple pieces of telemetry for every integration test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+
+      - name: Run Integration Tests
+        uses: ./.github/actions/python/integration-tests/
+        with:
+          python-version: ${{ matrix.python-version }}
+          otel-prod-token: ${{ secrets.OTEL_PROD_TOKEN }}
+          otel-prod-endpoint: ${{ secrets.OTEL_PROD_ENDPOINT }}
+
+  release-anaconda-opentelemetry:
+    needs: ['unit-tests', 'integration-tests', 'build-anaconda-opentelemetry']
+
+    runs-on: [self-hosted-default]
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+    - name: Setup miniconda
+      uses: conda-incubator/setup-miniconda@835234971496cad1653abb28a638a281cf32541f # v3.2.0
+      with:
+        channels: defaults
+
+    - name: Install conda-repo-cli
+      run: conda install conda-repo-cli -q
+
+    - name: Download artifacts
+      uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+      with:
+        name: package
+        path: dist
+
+    - name: Upload to https://pkgs.as.internal.anacondaconnect.com
+      run: |
+        conda repo config --set sites.pkgs.url https://pkgs.as.internal.anacondaconnect.com/api
+        conda repo --token $ANACONDA_CLOUD_TOKEN --site pkgs upload --channel anaconda-cloud --package-type conda ./dist/*
+      env:
+        ANACONDA_CLOUD_TOKEN: ${{ secrets.ANACONDA_CLOUD_TOKEN }}
