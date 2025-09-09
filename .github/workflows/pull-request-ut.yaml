@@ -1,0 +1,81 @@
+name: Run Unit Tests on PR
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      typescript: ${{ steps.filter.outputs.typescript }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+
+      - name: Check for file changes
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3
+        id: filter
+        with:
+          filters: |
+            typescript:
+              - '**'
+
+  typescript-unit-tests:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.typescript == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['20.x', '22.x', '24.x']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+
+      - name: Run Unit Tests
+        uses: ./.github/actions/typescript/unit-tests/
+        with:
+          node-version: ${{ matrix.node-version }}
+
+  test-status:
+    name: Unit Tests Status
+    if: always()
+    needs: [detect-changes, typescript-unit-tests]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate test results
+        run: |
+          echo "::group::Change Detection Results"
+          echo "TypeScript changes detected: ${{ needs.detect-changes.outputs.typescript }}"
+          echo "::endgroup::"
+
+          echo "::group::Test Execution Results"
+          echo "TypeScript tests result: ${{ needs.typescript-tests.result }}"
+          echo "::endgroup::"
+
+          # Check TypeScript tests
+          if [[ "${{ needs.detect-changes.outputs.typescript }}" == "true" ]]; then
+            if [[ "${{ needs.typescript-unit-tests.result }}" == "success" ]]; then
+              echo "TypeScript tests passed (required due to changes)"
+            else
+              echo "TypeScript tests failed or were cancelled"
+              exit 1
+            fi
+          else
+            echo "TypeScript tests skipped (no changes detected)"
+          fi
+
+          # Handle workflow_dispatch case
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "::notice::Manual workflow run - checking all executed tests"
+            if [[ "${{ needs.typescript-unit-tests.result }}" != "success" && "${{ needs.typescript-unit-tests.result }}" != "skipped" ]]; then
+              echo "TypeScript tests failed in manual run"
+              exit 1
+            fi
+          fi
+
+          echo "::notice:: All required tests have passed!"

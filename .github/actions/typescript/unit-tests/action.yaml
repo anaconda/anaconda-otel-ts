@@ -1,0 +1,24 @@
+name: 'Run Unit Tests'
+description: 'Runs unit tests on anaconda-opentelemetry package code'
+inputs:
+  node-version:
+    description: 'Node version to use'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install dependencies
+        shell: bash
+        working-directory: .
+        run: npm ci || npm install
+
+      - name: Run TypeScript tests
+        shell: bash
+        working-directory: .
+        run: npm run coverage

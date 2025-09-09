@@ -1,0 +1,47 @@
+# Source files (not needed in published package if you ship compiled JS)
+src/
+
+# ignore for packaging
+package-lock.json
+
+# TypeScript config
+tsconfig.json
+tsconfig.test.json
+
+# Documentation
+docs/
+doc-files/
+typedoc.json
+
+# Tests and coverage
+test/
+__tests__/
+coverage/
+jest.config.js
+
+# Build artifacts not needed by consumers
+*.log
+*.tsbuildinfo
+
+# Development files
+.vscode/
+.idea/
+.DS_Store
+
+# Node modules (should never be published)
+node_modules/
+
+# Local environment
+.env
+
+# any scripting for dev work.
+*.sh
+scripts/
+
+# ignore patch files
+*.patch
+
+#ignore common tarballs
+*.tar
+*.tar.*
+*.tgz

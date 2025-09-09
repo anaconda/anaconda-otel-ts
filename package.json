@@ -1,0 +1,50 @@
+{
+  "name": "anaconda-opentelemetry",
+  "version": "0.5.0",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "CHANGELOG.md",
+    "LICENSE",
+    "package.json"
+  ],
+  "sideEffects": false,
+  "peerDependencies": {
+    "@opentelemetry/api": "^1.9.0"
+  },
+  "dependencies": {
+    "@opentelemetry/exporter-metrics-otlp-grpc": "^0.203.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.203.0",
+    "@opentelemetry/exporter-trace-otlp-grpc": "^0.203.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.203.0",
+    "@opentelemetry/sdk-metrics": "^2.0.1",
+    "@opentelemetry/sdk-node": "^0.203.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "jest": "^30.0.5",
+    "ts-jest": "^29.4.1",
+    "typedoc": "^0.28.11",
+    "typescript": "^5.9.2"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "coverage": "jest --selectProjects unit --coverage",
+    "test:unit": "jest --selectProjects unit",
+    "test:integration": "jest --selectProjects integration",
+    "clean": "rm -rf dist docs coverage anaconda-opentelemetry-*.tgz",
+    "docs": "typedoc",
+    "prepack": "npm run build"
+  }
+}
