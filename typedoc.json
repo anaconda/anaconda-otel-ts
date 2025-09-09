@@ -1,0 +1,8 @@
+{
+  "name": "Anaconda OpenTelemetry for Typescript",
+  "entryPoints": ["src/index.ts"],
+  "out": "docs",
+  "projectDocuments": ["doc-files/quickstart.md"],
+  "readme": "doc-files/homepage.md",
+  "tsconfig": "tsconfig.json"
+}
