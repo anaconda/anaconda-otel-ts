@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 Anaconda, Inc
+// SPDX-License-Identifier: Apache-2.0
+
 test("Verify collector endpoint accepts metrics", async () => {
     const testData = JSON.stringify({
         resourceMetrics: [{
@@ -5,7 +8,7 @@ test("Verify collector endpoint accepts metrics", async () => {
                 attributes: [
                     { key: 'service.name', value: { stringValue: 'integration-test' } },
                     { key: 'environment', value: { stringValue: 'test' } }
-                ] 
+                ]
             },
             scopeMetrics: [{
                 scope: { name: 'test-scope' },
