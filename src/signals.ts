@@ -1,25 +1,21 @@
 // SPDX-FileCopyrightText: 2025 Anaconda, Inc
 // SPDX-License-Identifier: Apache-2.0
 
-import { AttrMap, CarrierMap } from './types';
-import { Configuration } from './config';
-import { ResourceAttributes } from './attributes';
-import { AnacondaMetrics, CounterArgs, HistogramArgs } from './metrics';
-import { AnacondaTrace, ASpan, TraceArgs } from './traces';
+import { Configuration } from './config.js';
+import { ResourceAttributes } from './attributes.js';
+import { AnacondaMetrics, CounterArgs, HistogramArgs } from './metrics.js';
+import { AnacondaTrace, type ASpan, TraceArgs } from './traces.js';
+import { localTimeString as lts } from './common.js';
 
-// Used when no tracing is initialized.
-class NOOPASpan implements ASpan {
-    addEvent(name: string, attributes?: AttrMap): void {}
-    addException(exception: Error): void {}
-    setErrorStatus(msg?: string): void {}
-    addAttributes(attributes: AttrMap): void {}
-}
-
-var __noopASpan: ASpan = new NOOPASpan();
-var __initialized: boolean = false;
-var __metrics: AnacondaMetrics | undefined = undefined;
-var __tracing: AnacondaTrace | undefined = undefined;
-
+import {
+  __initialized,
+  __metrics,
+  __tracing,
+  __noopASpan,
+  __setInitialized,
+  __setMetrics,
+  __setTracing,
+} from './signals-state.js';
 
 /**
  * Initializes telemetry signals such as metrics and traces based on the provided configuration.
@@ -28,6 +24,8 @@ var __tracing: AnacondaTrace | undefined = undefined;
  * @param attributes - Resource attributes to associate with telemetry data.
  * @param signalTypes - An array of signal types to initialize (e.g., "metrics", "traces"). Defaults to ["metrics"].
  *
+ * @returns true is successful, otherwise false.
+ *
  * @remarks
  * - If telemetry has already been initialized, this function does nothing.
  * - Currently, only metrics initialization is implemented; tracing is a placeholder.
@@ -35,29 +33,33 @@ var __tracing: AnacondaTrace | undefined = undefined;
  */
 export function initializeTelemetry(config: Configuration,
                                     attributes: ResourceAttributes,
-                                    signalTypes: Array<string> = ["metrics"]): void {
+                                    signalTypes: Array<string> = ["metrics"]): boolean {
+    console.debug(`${lts()} > *** initializeTelemetry called...`)
     if (__initialized) {
-        return // If already initialized, do nothing.
+        console.debug(`${lts()} > *** already initialized, returning true.`)
+        return true // If already initialized, do nothing.
     }
     for (const signalType of signalTypes) {
         switch (signalType) {
             case "metrics":
-                __metrics = new AnacondaMetrics(config, attributes)
+               __setMetrics(new AnacondaMetrics(config, attributes))
+
                 break;
             case "tracing":
-                __tracing = new AnacondaTrace(config, attributes)
+                __setTracing(new AnacondaTrace(config, attributes))
                 break
             default:
-                console.warn(`*** WARNING: Unknown signal type: ${signalType}`)
+                console.warn(`${lts()} > *** WARNING: Unknown signal type: ${signalType}`)
                 break
         }
     }
     if (!__metrics && !__tracing) {
-        console.warn("*** WARNING: No telemetry signals initialized. Ensure at least one signal type is specified.")
-        return
+        console.warn(`${lts()} > *** WARNING: No telemetry signals initialized. Ensure at least one signal type is specified.`)
+        return false
     }
-    __initialized = true // Mark as initialized
-    return
+    __setInitialized(true) // Mark as initialized
+    console.debug(`${lts()} > *** initializeTelemetry finished.`)
+    return true
 }
 
 /**
@@ -68,6 +70,8 @@ export function initializeTelemetry(config: Configuration,
  * return `false` and perform no changes.
  *
  * @param newAttributes - The new {@link ResourceAttributes} to apply to telemetry components.
+ * @param newEndpoint - A possible default endpoint replacement.
+ * @param newToken - A possible default token replacemennt.
  *
  * @returns `true` if telemetry was already initialized and reinitialization was performed,
  *          otherwise `false`.
@@ -82,12 +86,14 @@ export function initializeTelemetry(config: Configuration,
  *
  * @throws Error - when inside a traceBlock!
  */
-export function reinitializeTelemetry(newAttributes: ResourceAttributes): boolean {
+export function reinitializeTelemetry(newAttributes: ResourceAttributes,
+                                      newEndpoint: URL | undefined = undefined,
+                                      newToken: string | undefined = undefined): boolean {
     if (!__initialized) {
         return false
     }
-    __metrics?.reinitialize(newAttributes)
-    __tracing?.reinitialize(newAttributes)
+    __metrics?.reinitialize(newAttributes, newEndpoint, newToken)
+    __tracing?.reinitialize(newAttributes, newEndpoint, newToken)
     return true
 }
 
@@ -237,16 +243,16 @@ export function traceBlock(args: TraceArgs, block: (aspan: ASpan) => void): void
 }
 
 // For testing purposes, not in index.ts.
-export {
-    __initialized,
-    __metrics,
-    __tracing,
-    __noopASpan
-}
+// export {
+//     __initialized,
+//     __metrics,
+//     __tracing,
+//     __noopASpan
+// }
 
 // For testing purposes, not in index.ts.
-export function __resetSignals(): void {
-    __initialized = false;
-    __metrics = undefined;
-    __tracing = undefined;
-}
+// export function __resetSignals(): void {
+//     __initialized = false;
+//     __metrics = undefined;
+//     __tracing = undefined;
+// }

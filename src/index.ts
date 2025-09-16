@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Expose public API here...
-export * from './types';
-export { Configuration } from './config';
-export { ResourceAttributes } from './attributes';
+export * from './types.js';
+export { Configuration } from './config.js';
+export { ResourceAttributes } from './attributes.js';
 export {
     initializeTelemetry,
     reinitializeTelemetry,
@@ -12,5 +12,5 @@ export {
     decrementCounter,
     incrementCounter,
     traceBlock
-} from './signals';
-export type { ASpan } from './traces';
+} from './signals.js';
+export type { ASpan } from './traces.js';

@@ -4,6 +4,8 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
+import { jest, expect, beforeEach } from '@jest/globals';
+
 import { Configuration, InternalConfiguration } from '../../src/config'
 import { ResourceAttributes, InternalResourceAttributes } from '../../src/attributes'
 import { AnacondaMetrics, CounterArgs, HistogramArgs, NoopMetricExporter } from '../../src/metrics'
@@ -13,9 +15,9 @@ jest.mock('@opentelemetry/exporter-metrics-otlp-grpc')
 jest.mock('@opentelemetry/exporter-metrics-otlp-http')
 jest.mock('@opentelemetry/api')
 
-import { Attributes, metrics as otelmetrics } from '@opentelemetry/api'
-import { Meter } from '@opentelemetry/api'
-import { Resource } from "@opentelemetry/resources"
+import { type Attributes, metrics as otelmetrics } from '@opentelemetry/api'
+import { type Meter } from '@opentelemetry/api'
+import { type Resource } from "@opentelemetry/resources"
 
 const mockedMetrics = otelmetrics as jest.Mocked<typeof otelmetrics>
 const mockedMeter: jest.Mocked<Meter> = {
@@ -46,7 +48,7 @@ beforeEach(() => {
     const attributes = new ResourceAttributes("test_service", "0.0.1")
     metrics = new AnacondaMetrics(config, attributes)
     metrics.meter = mockedMeter
-    mockedMetrics.setGlobalMeterProvider.mockReturnValue(true)
+    // mockedMetrics.setGlobalMeterProvider.mockReturnValue(true)
     counter++
     process.env.OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE = undefined
 })
@@ -99,7 +101,7 @@ test("verify non-console implementation for setup and variations", () => {
                 counter += 1
                 if (counter === 19) { // Last time through nested loops ((2 * 2 * 5) - 1).
                     fs.unlinkSync(certFile)
-                    mockedMetrics.setGlobalMeterProvider.mockReturnValue(false)
+                    // mockedMetrics.setGlobalMeterProvider.mockReturnValue(false)
                     process.env.OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE = "DELTA"
                 }
                 const port = ports[schema]

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Anaconda, Inc
 // SPDX-License-Identifier: Apache-2.0
 
+import { expect, beforeEach } from '@jest/globals';
 import { Configuration, InternalConfiguration, toImpl } from '../../src/config'
 
 beforeEach(() => {

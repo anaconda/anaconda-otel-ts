@@ -4,16 +4,17 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
+import { jest, expect, beforeEach, beforeAll, afterAll, afterEach } from '@jest/globals';
 import { Configuration, InternalConfiguration } from '../../src/config'
 import { InternalResourceAttributes, ResourceAttributes } from '../../src/attributes'
-import { AnacondaTrace, ASpanImpl, LocalContext, NoopSpanExporter, ASpan, TraceArgs } from '../../src/traces'
+import { AnacondaTrace, ASpanImpl, LocalContext, NoopSpanExporter, type ASpan, TraceArgs } from '../../src/traces'
 
 jest.mock('@opentelemetry/sdk-metrics')
 jest.mock('@opentelemetry/exporter-trace-otlp-grpc')
 jest.mock('@opentelemetry/exporter-trace-otlp-http')
 jest.mock('@opentelemetry/api')
 
-import { Span, trace, Tracer } from '@opentelemetry/api'
+import { type Span, trace, type Tracer } from '@opentelemetry/api'
 
 const mockedSpan: jest.Mocked<Span> = {
     spanContext: jest.fn(),
@@ -30,18 +31,25 @@ const mockedSpan: jest.Mocked<Span> = {
 }
 
 var certFile: string
-beforeEach(() => {
-    certFile = path.join(process.cwd(), "testFile2.cert")
+beforeAll(() => {
+    certFile = path.join("testFile2.cert")
     fs.writeFileSync(certFile, "Example Cert File 2")
+
+})
+
+beforeEach(() => {
     jest.spyOn(console, 'log').mockImplementation(() => {})
     jest.spyOn(console, 'warn').mockImplementation(() => {})
     jest.spyOn(console, 'error').mockImplementation(() => {})
 })
 
-afterEach(() => {
+afterAll(() => {
     if (fs.existsSync(certFile)) {
         fs.unlinkSync(certFile)
     }
+})
+
+afterEach(() => {
     jest.restoreAllMocks()
 })
 

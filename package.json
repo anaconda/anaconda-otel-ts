@@ -19,6 +19,9 @@
     "package.json"
   ],
   "sideEffects": false,
+  "engines": {
+    "node": ">=18.17"
+  },
   "peerDependencies": {
     "@opentelemetry/api": "^1.9.0"
   },
@@ -38,13 +41,13 @@
     "typescript": "^5.9.2"
   },
   "scripts": {
-    "build": "tsc",
+    "clean": "rm -rf dist dist-test docs coverage anaconda-opentelemetry-*.tgz",
+    "build": "tsc -p tsconfig.json",
+    "prepack": "npm run build",
     "test": "jest",
-    "coverage": "jest --selectProjects unit --coverage",
     "test:unit": "jest --selectProjects unit",
     "test:integration": "jest --selectProjects integration",
-    "clean": "rm -rf dist docs coverage anaconda-opentelemetry-*.tgz",
-    "docs": "typedoc",
-    "prepack": "npm run build"
+    "coverage": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --selectProjects unit --coverage",
+    "docs": "typedoc"
   }
 }

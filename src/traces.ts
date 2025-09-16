@@ -1,21 +1,51 @@
 // SPDX-FileCopyrightText: 2025 Anaconda, Inc
 // SPDX-License-Identifier: Apache-2.0
 
-import { AttrMap, CarrierMap } from './types'
-import { Configuration } from './config'
-import { ResourceAttributes } from './attributes'
-import { AnacondaCommon } from "./common"
-import { __noopASpan } from './signals'
+import * as fs from 'fs';
 
-import { OTLPTraceExporter as OTLPTraceExporterHTTP } from '@opentelemetry/exporter-trace-otlp-http'
-import { OTLPTraceExporter as OTLPTraceExporterGRPC } from '@opentelemetry/exporter-trace-otlp-grpc'
-import { ConsoleSpanExporter, SpanExporter, BatchSpanProcessor, ReadableSpan } from '@opentelemetry/sdk-trace-base'
-import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node'
-import { SpanStatusCode, Span } from '@opentelemetry/api'
-import { ChannelCredentials } from '@grpc/grpc-js'
-import { trace, Context } from '@opentelemetry/api'
+import { type AttrMap, type CarrierMap } from './types.js'
+import { Configuration } from './config.js'
+import { ResourceAttributes } from './attributes.js'
+import { AnacondaCommon } from "./common.js"
+import { __noopASpan } from './signals-state.js'
 
-type SpanExporterConstructor = new (...args: any[]) => SpanExporter;
+// ----- values -----
+import { diag, DiagConsoleLogger, DiagLogLevel } from '@opentelemetry/api';
+
+import * as otlpTraceHttpNS from '@opentelemetry/exporter-trace-otlp-http';
+const { OTLPTraceExporter: OTLPTraceExporterHTTP } = otlpTraceHttpNS;
+
+import * as otlpTraceGrpcNS from '@opentelemetry/exporter-trace-otlp-grpc';
+const { OTLPTraceExporter: OTLPTraceExporterGRPC } = otlpTraceGrpcNS;
+
+import * as sdkTraceBaseNS from '@opentelemetry/sdk-trace-base';
+const { ConsoleSpanExporter, BatchSpanProcessor } = sdkTraceBaseNS;
+
+import * as sdkTraceNodeNS from '@opentelemetry/sdk-trace-node';
+const { NodeTracerProvider } = sdkTraceNodeNS;
+
+import * as apiNS from '@opentelemetry/api';
+const { SpanStatusCode, trace } = apiNS;
+
+import grpc from '@grpc/grpc-js';
+const { ChannelCredentials } = grpc;
+
+// ----- types -----
+import type { Span, Context } from '@opentelemetry/api';
+import type {
+  SpanExporter as _SpanExporter,
+  ReadableSpan as _ReadableSpan,
+  BatchSpanProcessor as _BatchSpanProcessor,
+} from '@opentelemetry/sdk-trace-base';
+import type { NodeTracerProvider as _NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
+import type { ChannelCredentials as _ChannelCredentials } from '@grpc/grpc-js';
+
+// ----- local type aliases (reuse runtime names) -----
+type SpanExporter = _SpanExporter;
+type ReadableSpan = _ReadableSpan;
+type BatchSpanProcessor = _BatchSpanProcessor;
+type NodeTracerProvider = _NodeTracerProvider;
+type ChannelCredentials = _ChannelCredentials;
 
 export class TraceArgs {
     name: string = "";
@@ -97,12 +127,18 @@ export class AnacondaTrace extends AnacondaCommon {
         this.setup()
     }
 
-    reinitialize(newAttributes: ResourceAttributes): void {
+    reinitialize(newAttributes: ResourceAttributes,
+                 newEndpoint: URL | undefined = undefined,
+                 newToken: string | undefined = undefined
+    ): void {
         if (this.depth > 0) {
             throw new Error("TRACE ERROR: The tracing system cannot be re-initialized if inside a trace span!")
         }
         this.tearDown()
         this.makeNewResource(newAttributes)
+        if(newEndpoint) {
+            this.config.defaultEndpoint = [newEndpoint!, newToken, undefined]
+        }
         this.setup()
     }
 
@@ -123,29 +159,34 @@ export class AnacondaTrace extends AnacondaCommon {
         this.provider!.forceFlush()
     }
 
-    private readonly schemeToExporter: Record<string, SpanExporterConstructor> = {
-        "console:": ConsoleSpanExporter,
-        "http:": OTLPTraceExporterHTTP,
-        "https:": OTLPTraceExporterHTTP,
-        "grpc:": OTLPTraceExporterGRPC,
-        "grpcs:": OTLPTraceExporterGRPC,
-        "devnull:": NoopSpanExporter
-    }
-
-    makeBatchProcessor(scheme: string, url: string, headers: Record<string,String>, creds?: ChannelCredentials): BatchSpanProcessor | undefined {
-        if (!(scheme in this.schemeToExporter)) { return undefined }
-        const ExporterType = this.schemeToExporter[scheme]
-        const exporter = new ExporterType({
-            url:url,
-            headers: headers,
-            credentials: creds
-        });
-        return new BatchSpanProcessor(exporter)
+    makeBatchProcessor(scheme: string, url: URL, httpHeaders: Record<string,string>,
+                       creds?: ChannelCredentials): BatchSpanProcessor | undefined {
+        var urlStr = url.href
+        if (scheme === 'grpc:' || scheme === 'grpcs:') {
+            urlStr = `${url.hostname}:${url.port}`
+            const exporter = new OTLPTraceExporterGRPC({
+                url: urlStr,
+                headers: httpHeaders,
+                 credentials: creds
+            });
+            return new BatchSpanProcessor(exporter)
+        } else if (scheme === 'http:' || scheme === 'https:') {
+            const exporter = new OTLPTraceExporterHTTP({
+                url: urlStr,
+                headers: httpHeaders
+            });
+            return new BatchSpanProcessor(exporter)
+        } else if (scheme === 'console:') {
+            const exporter = new ConsoleSpanExporter()
+            return new BatchSpanProcessor(exporter)
+        }
+        this.warn(`Received bad scheme for tracing: ${scheme}!`)
+        return undefined
     }
 
     readCredentials(scheme: string, certFile?: string): ChannelCredentials | undefined {
         var creds: ChannelCredentials | undefined = undefined
-        if (certFile && scheme === ("grpcs:")) {
+        if (certFile !== undefined && scheme === ("grpcs:")) {
             const certContent = this.readCertFile(certFile)
             if (certContent) {
                 creds = ChannelCredentials.createSsl(Buffer.from(certContent))
@@ -168,15 +209,18 @@ export class AnacondaTrace extends AnacondaCommon {
     }
 
     private setup(): void {
+        if (this.config.useDebug) {
+            diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.DEBUG);
+        }
         this.forEachTraceEndpoints((endpoint, authToken, certFile) => {
-            this.debug(`Connecting to endpoint '${endpoint.href}'...`)
             const scheme = endpoint.protocol
             const ep = new URL(endpoint.href)
+            this.debug(`Connecting to traces endpoint '${ep.href}'.`)
             ep.protocol = ep.protocol.replace("grpcs:", "https:")
             ep.protocol = ep.protocol.replace("grpc:", "http:")
             var creds: ChannelCredentials | undefined = this.readCredentials(scheme, certFile)
             const headers: Record<string,string> = authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
-            const processor: BatchSpanProcessor | undefined = this.makeBatchProcessor(scheme, ep.href, headers, creds)
+            const processor: BatchSpanProcessor | undefined = this.makeBatchProcessor(scheme, ep, headers, creds)
             if (processor) { this.processors.push(processor!) }
         })
         this.provider = new NodeTracerProvider({
