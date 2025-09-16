@@ -44,9 +44,9 @@
     "clean": "rm -rf dist dist-test docs coverage anaconda-opentelemetry-*.tgz",
     "build": "tsc -p tsconfig.json",
     "prepack": "npm run build",
-    "test": "jest",
-    "test:unit": "jest --selectProjects unit",
-    "test:integration": "jest --selectProjects integration",
+    "test": "NODE_OPTIONS=\"--experimental-vm-modules\" jest",
+    "test:unit": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --selectProjects unit",
+    "test:integration": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --selectProjects integration",
     "coverage": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --selectProjects unit --coverage",
     "docs": "typedoc"
   }

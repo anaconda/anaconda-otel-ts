@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2025 Anaconda, Inc
 // SPDX-License-Identifier: Apache-2.0
 
+import https from 'https';
+
 test("Verify collector endpoint accepts metrics", async () => {
     const testData = JSON.stringify({
         resourceMetrics: [{
@@ -31,8 +33,8 @@ test("Verify collector endpoint accepts metrics", async () => {
     
     const result = await new Promise<boolean>((resolve) => {
         const url = new URL(process.env.ATEL_DEFAULT_ENDPOINT || 'http://localhost:4318/v1/metrics');  // will fail if no env var
-        const https = require('https');
-        const req = https.request({
+        const client = https;
+        const req = client.request({
             hostname: url.hostname,
             path: url.pathname,
             method: 'POST',
