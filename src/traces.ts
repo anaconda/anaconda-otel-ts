@@ -1,20 +1,49 @@
 // SPDX-FileCopyrightText: 2025 Anaconda, Inc
 // SPDX-License-Identifier: Apache-2.0
 
-import { AttrMap, CarrierMap } from './types'
-import { Configuration } from './config'
-import { ResourceAttributes } from './attributes'
-import { AnacondaCommon } from "./common"
-import { __noopASpan } from './signals'
+import * as fs from 'fs';
 
-import { OTLPTraceExporter as OTLPTraceExporterHTTP } from '@opentelemetry/exporter-trace-otlp-http'
-import { OTLPTraceExporter as OTLPTraceExporterGRPC } from '@opentelemetry/exporter-trace-otlp-grpc'
-import { ConsoleSpanExporter, SpanExporter, BatchSpanProcessor, ReadableSpan } from '@opentelemetry/sdk-trace-base'
-import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node'
-import { SpanStatusCode, Span } from '@opentelemetry/api'
-import { ChannelCredentials } from '@grpc/grpc-js'
-import { trace, Context } from '@opentelemetry/api'
+import { type AttrMap, type CarrierMap } from './types.js'
+import { Configuration } from './config.js'
+import { ResourceAttributes } from './attributes.js'
+import { AnacondaCommon } from "./common.js"
+import { __noopASpan } from './signals-state.js'
 
+// ----- values -----
+import * as otlpTraceHttpNS from '@opentelemetry/exporter-trace-otlp-http';
+const { OTLPTraceExporter: OTLPTraceExporterHTTP } = otlpTraceHttpNS;
+
+import * as otlpTraceGrpcNS from '@opentelemetry/exporter-trace-otlp-grpc';
+const { OTLPTraceExporter: OTLPTraceExporterGRPC } = otlpTraceGrpcNS;
+
+import * as sdkTraceBaseNS from '@opentelemetry/sdk-trace-base';
+const { ConsoleSpanExporter, BatchSpanProcessor } = sdkTraceBaseNS;
+
+import * as sdkTraceNodeNS from '@opentelemetry/sdk-trace-node';
+const { NodeTracerProvider } = sdkTraceNodeNS;
+
+import * as apiNS from '@opentelemetry/api';
+const { SpanStatusCode, trace } = apiNS;
+
+import grpc from '@grpc/grpc-js';
+const { ChannelCredentials } = grpc;
+
+// ----- types -----
+import type { Span, Context } from '@opentelemetry/api';
+import type {
+  SpanExporter as _SpanExporter,
+  ReadableSpan as _ReadableSpan,
+  BatchSpanProcessor as _BatchSpanProcessor,
+} from '@opentelemetry/sdk-trace-base';
+import type { NodeTracerProvider as _NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
+import type { ChannelCredentials as _ChannelCredentials } from '@grpc/grpc-js';
+
+// ----- local type aliases (reuse runtime names) -----
+type SpanExporter = _SpanExporter;
+type ReadableSpan = _ReadableSpan;
+type BatchSpanProcessor = _BatchSpanProcessor;
+type NodeTracerProvider = _NodeTracerProvider;
+type ChannelCredentials = _ChannelCredentials;
 type SpanExporterConstructor = new (...args: any[]) => SpanExporter;
 
 export class TraceArgs {
@@ -95,14 +124,21 @@ export class AnacondaTrace extends AnacondaCommon {
     constructor(config: Configuration, attributes: ResourceAttributes) {
         super(config, attributes)
         this.setup()
+        this.debug(`*** Call to AnacondaTrace ctor: OK`)
     }
 
-    reinitialize(newAttributes: ResourceAttributes): void {
+    reinitialize(newAttributes: ResourceAttributes,
+                 newEndpoint: URL | undefined = undefined,
+                 newToken: string | undefined = undefined
+    ): void {
         if (this.depth > 0) {
             throw new Error("TRACE ERROR: The tracing system cannot be re-initialized if inside a trace span!")
         }
         this.tearDown()
         this.makeNewResource(newAttributes)
+        if(newEndpoint) {
+            this.config.defaultEndpoint = [newEndpoint!, newToken, undefined]
+        }
         this.setup()
     }
 
@@ -145,7 +181,7 @@ export class AnacondaTrace extends AnacondaCommon {
 
     readCredentials(scheme: string, certFile?: string): ChannelCredentials | undefined {
         var creds: ChannelCredentials | undefined = undefined
-        if (certFile && scheme === ("grpcs:")) {
+        if (certFile !== undefined && scheme === ("grpcs:")) {
             const certContent = this.readCertFile(certFile)
             if (certContent) {
                 creds = ChannelCredentials.createSsl(Buffer.from(certContent))

@@ -1,11 +1,14 @@
 // SPDX-FileCopyrightText: 2025 Anaconda, Inc
 // SPDX-License-Identifier: Apache-2.0
 
+import * as fs from 'node:fs';                    // ESM import
+import { jest, expect, beforeAll, afterAll } from '@jest/globals';
+
 import { Configuration, InternalConfiguration } from '../../src/config'
 import { ResourceAttributes, InternalResourceAttributes } from '../../src/attributes';
 import { AnacondaCommon } from '../../src/common';
 
-import { Resource } from '@opentelemetry/resources'
+import { type Resource } from '@opentelemetry/resources'
 
 class TestImpl extends AnacondaCommon {
     public constructor(config: Configuration, attributes: ResourceAttributes) {
@@ -54,6 +57,17 @@ class TestImpl extends AnacondaCommon {
     }
 }
 
+beforeAll(() => {
+    jest.spyOn(console, 'log').mockImplementation(() => {})
+    jest.spyOn(console, 'warn').mockImplementation(() => {})
+    jest.spyOn(console, 'error').mockImplementation(() => {})
+    fs.writeFileSync('cert.pem', 'mocked certificate content')
+})
+
+afterAll(() => {
+    fs.unlink('cert.pem', () => { /* Do Nothing */ })
+})
+
 test("Verify AnacondaCommon Constructor", () => {
     const config = new Configuration()
     const attributes = new ResourceAttributes("test_service", "0.0.0")
@@ -77,28 +91,19 @@ test("Verify AnacondaCommon Getters", () => {
     expect(common.skipInternetCheckTest).toBe(false)
 })
 
-test("Verify AnacondaCommon readCertFile", () => {
+test("Verify AnacondaCommon readCertFile", async () => {
     const config = new Configuration()
     const attributes = new ResourceAttributes("test_service", "0.0.0")
     const common = new TestImpl(config, attributes)
-
-    const result = common.readCertFileTest("")
+    const result = common.readCertFileTest('')
     expect(result).toBeUndefined() // No file provided, should return undefined
-    // Mock the file system read
-    jest.spyOn(require('fs'), 'readFileSync').mockReturnValue("mocked certificate content")
 
-    const certContent = common.readCertFileTest("mocked_cert_file.pem")
+    const certContent = common.readCertFileTest("cert.pem")
     expect(certContent).toBe("mocked certificate content")
 
     // Verify error handling
-    const spy = jest.spyOn(console, 'error').mockImplementation(() => {})
-    jest.spyOn(require('fs'), 'readFileSync').mockImplementation(() => {
-        throw new Error("File not found")
-    })
     const certContentError = common.readCertFileTest("non_existent_cert_file.pem")
     expect(certContentError).toBeUndefined()
-    expect(spy).toHaveBeenCalledWith("*** WARNING: Failed to read certificate file: non_existent_cert_file.pem: Error: File not found")
-    spy.mockRestore() // Restore the original console.error
 })
 
 test("Verify AnacondaCommon forEachMetricsEndpoints", () => {

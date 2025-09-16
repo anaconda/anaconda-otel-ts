@@ -1,11 +1,12 @@
 // SPDX-FileCopyrightText: 2025 Anaconda, Inc
 // SPDX-License-Identifier: Apache-2.0
 
-import { ResourceAttributes, InternalResourceAttributes, toImpl } from '../../src/attributes'
+import { ResourceAttributes, InternalResourceAttributes, toImpl } from '../../src/attributes.js'
 import * as os from 'os'
+import { jest, expect } from '@jest/globals';
 
 // Mock the version module
-jest.mock('../../src/__version__', () => ({
+jest.mock('../../src/__version__.js', () => ({
     sdkVersion: '0.0.0',
     schemaVersion: '0.2.0'
 }))

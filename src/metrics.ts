@@ -1,24 +1,57 @@
 // SPDX-FileCopyrightText: 2025 Anaconda, Inc
 // SPDX-License-Identifier: Apache-2.0
 
-import { AttrMap } from './types';
-import { Configuration } from './config';
-import { ResourceAttributes } from './attributes';
-import { AnacondaCommon } from "./common";
+import { type AttrMap } from './types.js';
+import { Configuration } from './config.js';
+import { ResourceAttributes } from './attributes.js';
+import { AnacondaCommon } from "./common.js";
 
-import { metrics, Meter, UpDownCounter, Counter, Histogram } from '@opentelemetry/api';
-import { OTLPMetricExporter as OTLPMetricExporterHTTP } from '@opentelemetry/exporter-metrics-otlp-http';
-import { OTLPMetricExporter as OTLPMetricExporterGRPC } from '@opentelemetry/exporter-metrics-otlp-grpc';
-import {
-    MeterProvider,
-    PeriodicExportingMetricReader,
-    ConsoleMetricExporter,
-    PushMetricExporter,
-    ResourceMetrics
+// ----- your value imports (keep as-is) -----
+import { diag, DiagConsoleLogger, DiagLogLevel } from '@opentelemetry/api';
+import * as sdkMetricsNS from '@opentelemetry/sdk-metrics';
+const {
+  MeterProvider,
+  PeriodicExportingMetricReader,
+  ConsoleMetricExporter,
+} = sdkMetricsNS;
+
+import * as httpNS from '@opentelemetry/exporter-metrics-otlp-http';
+const { OTLPMetricExporter: OTLPMetricExporterHTTP } = httpNS;
+
+import * as grpcExporterNS from '@opentelemetry/exporter-metrics-otlp-grpc';
+const { OTLPMetricExporter: OTLPMetricExporterGRPC } = grpcExporterNS;
+
+import grpc from '@grpc/grpc-js';
+const { ChannelCredentials } = grpc;
+
+// ----- type-only imports -----
+import type {
+  Meter,
+  UpDownCounter,
+  Counter,
+  Histogram,
+} from '@opentelemetry/api';
+
+import type {
+  PushMetricExporter,
+  ResourceMetrics,
+  MeterProvider as _MeterProvider,
+  PeriodicExportingMetricReader as _PeriodicExportingMetricReader,
 } from '@opentelemetry/sdk-metrics';
-import { ChannelCredentials } from '@grpc/grpc-js';
 
+import type { ChannelCredentials as _ChannelCredentials } from '@grpc/grpc-js';
+
+// DEBUG LINES >>>>
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+// <<<<
+
+// ----- local type aliases that REUSE the value names -----
+type MeterProvider = _MeterProvider;
+type PeriodicExportingMetricReader = _PeriodicExportingMetricReader;
+type ChannelCredentials = _ChannelCredentials;
 type ExporterConstructor = new (...args: any[]) => PushMetricExporter;
+
 
 export class CounterArgs {
     name: string = "";
@@ -42,12 +75,28 @@ export class AnacondaMetrics extends AnacondaCommon {
 
     constructor(config: Configuration, attributes: ResourceAttributes) {
         super(config, attributes);
+
+        console.log(
+        '>>>>> otlp-http resolves to:',
+        require.resolve('@opentelemetry/exporter-metrics-otlp-http')
+        );
+        console.log(
+        '>>>>> platform build:',
+        require.resolve('@opentelemetry/exporter-metrics-otlp-http/build/src/platform')
+        );
+
         this.setup()
     }
 
-    reinitialize(newAttributes: ResourceAttributes): void {
+    reinitialize(newAttributes: ResourceAttributes,
+                 newEndpoint: URL | undefined = undefined,
+                 newToken: string | undefined = undefined
+    ): void {
         this.tearDown()
         this.makeNewResource(newAttributes)
+        if(newEndpoint) {
+            this.config.defaultEndpoint = [newEndpoint!, newToken, undefined]
+        }
         this.setup()
     }
 
@@ -109,11 +158,16 @@ export class AnacondaMetrics extends AnacondaCommon {
         "devnull:": NoopMetricExporter
     }
 
-    private makeReader(scheme: string, url: string, headers: Record<string,String>, creds?: ChannelCredentials): PeriodicExportingMetricReader | undefined {
+    private makeReader(scheme: string, url: URL, headers: Record<string,String>, creds?: ChannelCredentials): PeriodicExportingMetricReader | undefined {
         if (!(scheme in this.schemeToExporter)) { return undefined }
+        this.debug(`Exporter Scheme: ${scheme}`)
         const ExporterType = this.schemeToExporter[scheme]
+        var urlStr = url.href
+        if (scheme.startsWith('grpc')) {
+            urlStr = `${url.hostname}:${url.port}`
+        }
         const exporter = new ExporterType({
-            url:url,
+            url: urlStr,
             headers: headers,
             credentials: creds,
             temporalityPreference: this.config.getUseCumulativeMetrics() ? "CUMULATIVE" : "DELTA"
@@ -147,19 +201,29 @@ export class AnacondaMetrics extends AnacondaCommon {
     }
 
     private setup(): void {
+        if (this.config.useDebug) {
+            diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.DEBUG);
+        }
         this.forEachMetricsEndpoints((endpoint, authToken, certFile) => {
-            this.debug(`Connecting to endpoint '${endpoint.href}'...`)
             const scheme = endpoint.protocol
             const ep = new URL(endpoint.href)
             ep.protocol = ep.protocol.replace("grpcs:", "https:")
             ep.protocol = ep.protocol.replace("grpc:", "http:")
+            this.debug(`Connecting to OTel endpoint '${ep.href}'...`)
             var creds: ChannelCredentials | undefined = this.readCredentials(scheme, certFile)
-            const headers: Record<string,string> = authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
-            const reader: PeriodicExportingMetricReader | undefined = this.makeReader(scheme, ep.href, headers, creds)
+            var headers: Record<string,string> = authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
+            if (scheme.startsWith('http')) {
+                headers['Content-Type'] = 'application/x-protobuf'
+            }
+            const reader: PeriodicExportingMetricReader | undefined = this.makeReader(scheme, ep, headers, creds)
             if (reader) { this.readers.push(reader!) }
         })
         this.meterProvider = new MeterProvider({ readers: this.readers, resource: this.resources })
         this.meter = this.meterProvider.getMeter(this.serviceName, this.serviceVersion)
+        if (this.config.getUseDebug()) {
+            const c = this.meter.createCounter('heartbeat');
+            setInterval(() => c.add(1, { demo: 'debug' }), 1000);
+        }
         if (this.meter) {
             this.debug("Meter created successfully.")
         } else {

@@ -5,40 +5,48 @@ const { createDefaultPreset } = require("ts-jest");
 
 const tsJestTransformCfg = createDefaultPreset().transform;
 
-/** @type {import("jest").Config} **/
+/** @type {import('jest').Config} */
 module.exports = {
+  coverageDirectory: '<rootDir>/coverage',
+  coverageReporters: ['text', 'lcov'],
   projects: [
     {
       displayName: 'unit',
-      preset: 'ts-jest',
       testEnvironment: 'node',
+      rootDir: '.',
+      testMatch: ['<rootDir>/tests/unit/**/*.ts'],
       extensionsToTreatAsEsm: ['.ts'],
-      testMatch: ['<rootDir>/tests/unit/**/*.(spec|test).ts'],
-      moduleNameMapper: {
-        '^@/(.*)$': '<rootDir>/src/$1'
-      },
       transform: {
-        '^.+\\.ts$': ['ts-jest', { useESM: true }]
+        '^.+\\.tsx?$': [
+          'ts-jest',
+          {
+            useESM: true,
+            tsconfig: 'tsconfig.test.json'
+          }
+        ]
       },
-      collectCoverageFrom: ['src/**/*.ts'],
-      coveragePathIgnorePatterns: [
-        "/node_modules/",
-        "/integration_tests/"
-      ]
+      moduleNameMapper: {
+        '^(\\.{1,2}/.*)\\.js$': '$1'
+      },
     },
     {
       displayName: 'integration',
-      preset: 'ts-jest',
       testEnvironment: 'node',
+      rootDir: '.',
+      testMatch: ['<rootDir>/tests/integration/**/*.ts'],
       extensionsToTreatAsEsm: ['.ts'],
-      testMatch: ['<rootDir>/tests/integration/**/*.(spec|test|e2e).ts'],
-      moduleNameMapper: {
-        '^@/(.*)$': '<rootDir>/src/$1'
-      },
       transform: {
-        ...tsJestTransformCfg,
+        '^.+\\.tsx?$': [
+          'ts-jest',
+          {
+            useESM: true,
+            tsconfig: 'tsconfig.test.json'
+          }
+        ]
       },
-      testTimeout: 30000
+      moduleNameMapper: {
+        '^(\\.{1,2}/.*)\\.js$': '$1'
+      },
     }
   ]
 };

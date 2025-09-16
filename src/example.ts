@@ -11,8 +11,8 @@ import {
     recordHistogram,
     ResourceAttributes,
     traceBlock,
-    ASpan
-} from "./index"
+    type ASpan
+} from "./index.js"
 
 function sleep(to: number) {
     setTimeout(() => { }, to)

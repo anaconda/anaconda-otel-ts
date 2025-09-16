@@ -1,10 +1,21 @@
 // SPDX-FileCopyrightText: 2025 Anaconda, Inc
 // SPDX-License-Identifier: Apache-2.0
 
-import { Configuration, InternalConfiguration, toImpl as toImplCfg } from './config';
-import { ResourceAttributes, InternalResourceAttributes, toImpl as toImplAttrs } from './attributes';
+import * as fs from 'fs';
+import { Configuration, InternalConfiguration, toImpl as toImplCfg } from './config.js';
+import { ResourceAttributes, InternalResourceAttributes, toImpl as toImplAttrs } from './attributes.js';
 
-import { Resource, resourceFromAttributes } from '@opentelemetry/resources';
+// value import (namespace gives us both ESM & CJS shapes)
+import * as resourcesNS from '@opentelemetry/resources';
+
+// ---- v2 export OR v1 fallback to `new Resource(attrs)` ----
+const resourceFromAttributes =
+  (resourcesNS as any).resourceFromAttributes ??
+  ((attrs: Record<string, unknown>) => new (resourcesNS as any).Resource(attrs));
+
+// type import + alias (so you can keep using `Resource` in type positions)
+import type { Resource as _Resource } from '@opentelemetry/resources';
+type Resource = _Resource;
 
 export class AnacondaCommon {
     config: InternalConfiguration
@@ -51,7 +62,7 @@ export class AnacondaCommon {
     protected readCertFile(certFile: string): string | undefined {
         if (certFile && certFile.length > 0) {
             try {
-                return require('fs').readFileSync(certFile, 'utf8')
+                return fs.readFileSync(certFile, 'utf8')
             } catch (error) {
                 this.error(`Failed to read certificate file: ${certFile}: ${error}`)
                 return undefined
@@ -74,20 +85,32 @@ export class AnacondaCommon {
 
     protected debug(line: string) {
         if (this.config.getUseDebug()) {
-            console.debug(`*** DEBUG: ${line}`)
+            console.debug(`${localTimeString()} > *** ATEL DEBUG: ${line}`)
         }
     }
 
     protected warn(line: string) {
-        console.warn(`*** ERROR: ${line}`)
+        console.warn(`${localTimeString()} > *** ATEL ERROR: ${line}`)
     }
 
     protected error(line: string) {
-        console.error(`*** WARNING: ${line}`)
+        console.error(`${localTimeString()} > *** ATEL WARNING: ${line}`)
     }
 
     protected isValidName(name: string): boolean {
         const regex = /^[A-Za-z][A-Za-z_0-9]+$/;
         return regex.test(name);
     }
+}
+
+export function localTimeString(): string {
+    const d = new Date();
+    const pad = (n: number, width = 2) => String(n).padStart(width, "0");
+
+    const hh = pad(d.getHours());
+    const mm = pad(d.getMinutes());
+    const ss = pad(d.getSeconds());
+    const ms = pad(d.getMilliseconds(), 3);
+
+    return `${hh}:${mm}:${ss}.${ms}`;
 }

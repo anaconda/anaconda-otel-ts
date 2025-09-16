@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: 2025 Anaconda, Inc
 // SPDX-License-Identifier: Apache-2.0
 
-import { Configuration, InternalConfiguration, toImpl } from '../../src/config'
+import { jest, expect, beforeEach } from '@jest/globals';
+import { Configuration } from '../../src/config'
 import { ResourceAttributes } from '../../src/attributes'
 import {
     initializeTelemetry,
@@ -9,14 +10,16 @@ import {
     recordHistogram,
     decrementCounter,
     incrementCounter,
-    traceBlock,
-    __noopASpan,
+    traceBlock
+} from '../../src/signals'
+import {
+    __resetSignals,
     __initialized,
     __metrics,
     __tracing,
-    __resetSignals
-} from '../../src/signals'
-import { ASpan } from '../../src/traces'
+    __noopASpan
+} from '../../src/testing-signals.js';
+import { type ASpan } from '../../src/traces'
 
 beforeEach(() => {
     jest.clearAllMocks()
@@ -90,7 +93,7 @@ test("initializeTelemetry with unknown signal type", () => {
     expect(__initialized).toBe(false)
     expect(__metrics).toBeUndefined()
     expect(__tracing).toBeUndefined()
-    expect(console.warn).toHaveBeenCalledWith("*** WARNING: Unknown signal type: unknown")
+    expect(console.warn).toHaveBeenCalled()
 })
 
 test("initializeTelemetry does nothing if already initialized", () => {

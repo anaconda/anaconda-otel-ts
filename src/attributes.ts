@@ -4,7 +4,7 @@
 // attributes.ts
 
 import * as os from 'os';
-import { sdkVersion, schemaVersion } from './__version__';
+import { sdkVersion, schemaVersion } from './__version__.js';
 
 // Type definitions for readability
 type EnvironmentType = "" | "test" | "development" | "staging" | "production";

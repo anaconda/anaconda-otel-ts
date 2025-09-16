@@ -1,7 +1,10 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "types": ["jest"]
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "verbatimModuleSyntax": true,
+    "outDir": "dist-test"
   },
-  "include": ["tests/**/*.ts"]
+  "include": ["src", "tests/**/*.ts"]
 }
