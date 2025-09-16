@@ -6,8 +6,6 @@ on:
 jobs:
   unit-tests:
     name: Unit Tests for Typescript
-    needs: detect-changes
-    if: needs.detect-changes.outputs.typescript == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
