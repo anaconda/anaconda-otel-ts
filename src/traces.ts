@@ -10,6 +10,8 @@ import { AnacondaCommon } from "./common.js"
 import { __noopASpan } from './signals-state.js'
 
 // ----- values -----
+import { diag, DiagConsoleLogger, DiagLogLevel } from '@opentelemetry/api';
+
 import * as otlpTraceHttpNS from '@opentelemetry/exporter-trace-otlp-http';
 const { OTLPTraceExporter: OTLPTraceExporterHTTP } = otlpTraceHttpNS;
 
@@ -44,7 +46,6 @@ type ReadableSpan = _ReadableSpan;
 type BatchSpanProcessor = _BatchSpanProcessor;
 type NodeTracerProvider = _NodeTracerProvider;
 type ChannelCredentials = _ChannelCredentials;
-type SpanExporterConstructor = new (...args: any[]) => SpanExporter;
 
 export class TraceArgs {
     name: string = "";
@@ -124,7 +125,6 @@ export class AnacondaTrace extends AnacondaCommon {
     constructor(config: Configuration, attributes: ResourceAttributes) {
         super(config, attributes)
         this.setup()
-        this.debug(`*** Call to AnacondaTrace ctor: OK`)
     }
 
     reinitialize(newAttributes: ResourceAttributes,
@@ -159,24 +159,29 @@ export class AnacondaTrace extends AnacondaCommon {
         this.provider!.forceFlush()
     }
 
-    private readonly schemeToExporter: Record<string, SpanExporterConstructor> = {
-        "console:": ConsoleSpanExporter,
-        "http:": OTLPTraceExporterHTTP,
-        "https:": OTLPTraceExporterHTTP,
-        "grpc:": OTLPTraceExporterGRPC,
-        "grpcs:": OTLPTraceExporterGRPC,
-        "devnull:": NoopSpanExporter
-    }
-
-    makeBatchProcessor(scheme: string, url: string, headers: Record<string,String>, creds?: ChannelCredentials): BatchSpanProcessor | undefined {
-        if (!(scheme in this.schemeToExporter)) { return undefined }
-        const ExporterType = this.schemeToExporter[scheme]
-        const exporter = new ExporterType({
-            url:url,
-            headers: headers,
-            credentials: creds
-        });
-        return new BatchSpanProcessor(exporter)
+    makeBatchProcessor(scheme: string, url: URL, httpHeaders: Record<string,string>,
+                       creds?: ChannelCredentials): BatchSpanProcessor | undefined {
+        var urlStr = url.href
+        if (scheme === 'grpc:' || scheme === 'grpcs:') {
+            urlStr = `${url.hostname}:${url.port}`
+            const exporter = new OTLPTraceExporterGRPC({
+                url: urlStr,
+                headers: httpHeaders,
+                 credentials: creds
+            });
+            return new BatchSpanProcessor(exporter)
+        } else if (scheme === 'http:' || scheme === 'https:') {
+            const exporter = new OTLPTraceExporterHTTP({
+                url: urlStr,
+                headers: httpHeaders
+            });
+            return new BatchSpanProcessor(exporter)
+        } else if (scheme === 'console:') {
+            const exporter = new ConsoleSpanExporter()
+            return new BatchSpanProcessor(exporter)
+        }
+        this.warn(`Received bad scheme for tracing: ${scheme}!`)
+        return undefined
     }
 
     readCredentials(scheme: string, certFile?: string): ChannelCredentials | undefined {
@@ -204,15 +209,18 @@ export class AnacondaTrace extends AnacondaCommon {
     }
 
     private setup(): void {
+        if (this.config.useDebug) {
+            diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.DEBUG);
+        }
         this.forEachTraceEndpoints((endpoint, authToken, certFile) => {
-            this.debug(`Connecting to endpoint '${endpoint.href}'...`)
             const scheme = endpoint.protocol
             const ep = new URL(endpoint.href)
+            this.debug(`Connecting to traces endpoint '${ep.href}'.`)
             ep.protocol = ep.protocol.replace("grpcs:", "https:")
             ep.protocol = ep.protocol.replace("grpc:", "http:")
             var creds: ChannelCredentials | undefined = this.readCredentials(scheme, certFile)
             const headers: Record<string,string> = authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
-            const processor: BatchSpanProcessor | undefined = this.makeBatchProcessor(scheme, ep.href, headers, creds)
+            const processor: BatchSpanProcessor | undefined = this.makeBatchProcessor(scheme, ep, headers, creds)
             if (processor) { this.processors.push(processor!) }
         })
         this.provider = new NodeTracerProvider({

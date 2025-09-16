@@ -41,16 +41,10 @@ import type {
 
 import type { ChannelCredentials as _ChannelCredentials } from '@grpc/grpc-js';
 
-// DEBUG LINES >>>>
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-// <<<<
-
 // ----- local type aliases that REUSE the value names -----
 type MeterProvider = _MeterProvider;
 type PeriodicExportingMetricReader = _PeriodicExportingMetricReader;
 type ChannelCredentials = _ChannelCredentials;
-type ExporterConstructor = new (...args: any[]) => PushMetricExporter;
 
 
 export class CounterArgs {
@@ -75,16 +69,6 @@ export class AnacondaMetrics extends AnacondaCommon {
 
     constructor(config: Configuration, attributes: ResourceAttributes) {
         super(config, attributes);
-
-        console.log(
-        '>>>>> otlp-http resolves to:',
-        require.resolve('@opentelemetry/exporter-metrics-otlp-http')
-        );
-        console.log(
-        '>>>>> platform build:',
-        require.resolve('@opentelemetry/exporter-metrics-otlp-http/build/src/platform')
-        );
-
         this.setup()
     }
 
@@ -110,7 +94,6 @@ export class AnacondaMetrics extends AnacondaCommon {
             return false
         }
         var histogram = this.getHistogram(args.name)
-        this.debug(`On call histogram is of type 'Histogram'...`)
         histogram.record(args.value!, args.attributes!);
         return true
     }
@@ -125,9 +108,13 @@ export class AnacondaMetrics extends AnacondaCommon {
             return false
         }
         var [counter, isUpDown] = this.getCounter(args.name, args.forceUpDownCounter!)
-        this.debug(`On call ${isUpDown ? "up down " : ""}counter is of type '${isUpDown ? "UpDownCounter" : "Counter"}'...`)
-        counter.add(Math.abs(args.by!), args.attributes!)
-       return true
+        if (counter === undefined) {
+            this.warn(`Returned a undefined counter: '${args.name}'`)
+        } else {
+            this.debug(`Sendint increment to counter '${args.name}' with attributes:${JSON.stringify(args.attributes, null, 2)}`)
+            counter.add(Math.abs(args.by!), {}/*args.attributes!*/)
+        }
+        return true
     }
 
     decrementCounter(args: CounterArgs): boolean {
@@ -144,39 +131,53 @@ export class AnacondaMetrics extends AnacondaCommon {
             this.warn(`Metric name '${args.name}' is not a UpDownCounter, decrement is not allowed.`)
             return false
         }
-        this.debug(`On call counter is of type '${counter.constructor.name}'...`)
         counter.add(-Math.abs(args.by!), args.attributes!)
         return true
     }
 
-    private readonly schemeToExporter: Record<string, ExporterConstructor> = {
-        "console:": ConsoleMetricExporter,
-        "http:": OTLPMetricExporterHTTP,
-        "https:": OTLPMetricExporterHTTP,
-        "grpc:": OTLPMetricExporterGRPC,
-        "grpcs:": OTLPMetricExporterGRPC,
-        "devnull:": NoopMetricExporter
-    }
-
-    private makeReader(scheme: string, url: URL, headers: Record<string,String>, creds?: ChannelCredentials): PeriodicExportingMetricReader | undefined {
-        if (!(scheme in this.schemeToExporter)) { return undefined }
-        this.debug(`Exporter Scheme: ${scheme}`)
-        const ExporterType = this.schemeToExporter[scheme]
+    private makeReader(scheme: string, url: URL, httpHeaders: Record<string,string>, creds?: ChannelCredentials): PeriodicExportingMetricReader | undefined {
+        this.debug(`Creating Reader for endpoint type '${scheme}'.`)
         var urlStr = url.href
-        if (scheme.startsWith('grpc')) {
+        if (scheme === 'grpc:' || scheme === 'grpcs:') {
+            this.debug(`Creating GRPC reader for endpoint '${url.href}'...`)
             urlStr = `${url.hostname}:${url.port}`
+            const exporter = new OTLPMetricExporterGRPC({
+                url: urlStr,
+                credentials: creds,
+                temporalityPreference: this.config.getUseCumulativeMetrics() ?
+                    sdkMetricsNS.AggregationTemporality.CUMULATIVE :
+                    sdkMetricsNS.AggregationTemporality.DELTA
+            });
+            const reader = new PeriodicExportingMetricReader({
+                exporter,
+                exportIntervalMillis: this.metricsExportIntervalMs
+            });
+            return reader
+        } else if (scheme === 'http:' || scheme === 'https:') {
+            this.debug(`Creating HTTP reader for endpoint '${url.href}'...`)
+            const exporter = new OTLPMetricExporterHTTP({
+                url: urlStr,
+                headers: httpHeaders,
+                temporalityPreference: this.config.getUseCumulativeMetrics() ?
+                    sdkMetricsNS.AggregationTemporality.CUMULATIVE :
+                    sdkMetricsNS.AggregationTemporality.DELTA
+            });
+            const reader = new PeriodicExportingMetricReader({
+                exporter,
+                exportIntervalMillis: this.metricsExportIntervalMs
+            });
+            return reader
+        } else if (scheme === 'console:') {
+            this.debug(`Creating Console reader for endpoint '${url.href}'...`)
+            const exporter = new ConsoleMetricExporter()
+            const reader = new PeriodicExportingMetricReader({
+                exporter,
+                exportIntervalMillis: this.metricsExportIntervalMs
+            });
+            return reader
         }
-        const exporter = new ExporterType({
-            url: urlStr,
-            headers: headers,
-            credentials: creds,
-            temporalityPreference: this.config.getUseCumulativeMetrics() ? "CUMULATIVE" : "DELTA"
-        });
-        const reader = new PeriodicExportingMetricReader({
-            exporter,
-            exportIntervalMillis: this.metricsExportIntervalMs
-        });
-        return reader
+        this.warn(`Received bad scheme for metrics: ${scheme}!`)
+        return undefined // Unknown
     }
 
     private readCredentials(scheme: string, certFile?: string): ChannelCredentials | undefined {
@@ -207,9 +208,9 @@ export class AnacondaMetrics extends AnacondaCommon {
         this.forEachMetricsEndpoints((endpoint, authToken, certFile) => {
             const scheme = endpoint.protocol
             const ep = new URL(endpoint.href)
+            this.debug(`Connecting to metrics endpoint '${ep.href}'.`)
             ep.protocol = ep.protocol.replace("grpcs:", "https:")
             ep.protocol = ep.protocol.replace("grpc:", "http:")
-            this.debug(`Connecting to OTel endpoint '${ep.href}'...`)
             var creds: ChannelCredentials | undefined = this.readCredentials(scheme, certFile)
             var headers: Record<string,string> = authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
             if (scheme.startsWith('http')) {
@@ -222,7 +223,7 @@ export class AnacondaMetrics extends AnacondaCommon {
         this.meter = this.meterProvider.getMeter(this.serviceName, this.serviceVersion)
         if (this.config.getUseDebug()) {
             const c = this.meter.createCounter('heartbeat');
-            setInterval(() => c.add(1, { demo: 'debug' }), 1000);
+            setInterval(() => c.add(1, { demo: 'debug' }), 2_000);
         }
         if (this.meter) {
             this.debug("Meter created successfully.")
@@ -233,7 +234,6 @@ export class AnacondaMetrics extends AnacondaCommon {
 
     private getCounter(metricName: string, forceUpDownCounter: boolean): [UpDownCounter | Counter, boolean] {
         if (metricName in this.mapOfCounters) {
-            this.debug(`Metric counter name '${metricName}' found.`)
             return this.mapOfCounters[metricName]
         }
         var counter: Counter | UpDownCounter
@@ -242,18 +242,15 @@ export class AnacondaMetrics extends AnacondaCommon {
         } else {
             counter = this.meter!.createCounter(metricName)
         }
-        this.debug(`Metric ${forceUpDownCounter ? "up down " : ""}counter name '${metricName}' created with type 'UpDownCounter'.`)
         this.mapOfCounters[metricName] = [counter, forceUpDownCounter]
         return [counter, forceUpDownCounter]
     }
 
     private getHistogram(metricName: string): Histogram {
         if (metricName in this.mapOfHistograms) {
-            this.debug(`Metric histogram name '${metricName}' found.`)
             return this.mapOfHistograms[metricName]
         }
         var histogram: Histogram = this.meter!.createHistogram(metricName)
-        this.debug(`Metric histogram name '${metricName}' created with type '${histogram.constructor.name}'.`)
         this.mapOfHistograms[metricName] = histogram
         return histogram
     }

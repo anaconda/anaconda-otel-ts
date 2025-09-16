@@ -27,7 +27,9 @@ export class AnacondaCommon {
         this.attributes = toImplAttrs(attributes)
 
         let resourceObject = this.attributes.getAttributes()
-        resourceObject['session.id'] = this.config.getEntropy()
+        if (!this.config.getEntropy() || this.config.getEntropy() !== '') {
+            resourceObject['session.id'] = this.config.getEntropy()
+        }
         this.resources = resourceFromAttributes(resourceObject)
     }
 
@@ -35,7 +37,9 @@ export class AnacondaCommon {
         this.attributes = toImplAttrs(newAttributes)
 
         let resourceObject = this.attributes.getAttributes()
-        resourceObject['session.id'] = this.config.getEntropy()
+        if (!this.config.getEntropy() || this.config.getEntropy() !== '') {
+            resourceObject['session.id'] = this.config.getEntropy()
+        }
         this.resources = resourceFromAttributes(resourceObject)
     }
 
