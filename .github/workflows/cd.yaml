@@ -1,0 +1,13 @@
+name: CD
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Hello
+        run: echo "Hello"
