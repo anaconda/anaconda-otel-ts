@@ -1,12 +1,14 @@
-// local.otel.e2e.test.ts
+// SPDX-FileCopyrightText: 2025 Anaconda, Inc
+// SPDX-License-Identifier: Apache-2.0
+
 import {
     incrementCounter,
     initializeTelemetry,
     recordHistogram,
     reinitializeTelemetry
-} from '../../src/signals';
-import { Configuration } from '../../src/config';
-import { ResourceAttributes } from '../../src/attributes';
+} from '../../src/signals.js';
+import { Configuration } from '../../src/config.js';
+import { ResourceAttributes } from '../../src/attributes.js';
 import * as fs from 'fs/promises';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
