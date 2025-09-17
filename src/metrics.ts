@@ -108,12 +108,8 @@ export class AnacondaMetrics extends AnacondaCommon {
             return false
         }
         var [counter, isUpDown] = this.getCounter(args.name, args.forceUpDownCounter!)
-        if (counter === undefined) {
-            this.warn(`Returned a undefined counter: '${args.name}'`)
-        } else {
-            this.debug(`Sendint increment to counter '${args.name}' with attributes:${JSON.stringify(args.attributes, null, 2)}`)
-            counter.add(Math.abs(args.by!), {}/*args.attributes!*/)
-        }
+        let by: number = args.by ? Math.abs(args.by!) : 1;
+        counter.add(by, args.attributes ?? {})
         return true
     }
 
@@ -131,7 +127,8 @@ export class AnacondaMetrics extends AnacondaCommon {
             this.warn(`Metric name '${args.name}' is not a UpDownCounter, decrement is not allowed.`)
             return false
         }
-        counter.add(-Math.abs(args.by!), args.attributes!)
+        let by: number = args.by ? -Math.abs(args.by!) : 1;
+        counter.add(by, args.attributes ?? {})
         return true
     }
 
