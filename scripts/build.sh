@@ -3,6 +3,9 @@
 # SPDX-FileCopyrightText: 2025 Anaconda, Inc
 # SPDX-License-Identifier: Apache-2.0
 
+function check_failed() {
+    [[ $1 != 0 ]] && echo "ERROR: Last step failed!" && exit $?
+}
 
 cd "$(dirname $0)/.."
 workdir="$(pwd)"
@@ -18,9 +21,10 @@ version="0.0.0"
 [[ ! -d "./node_modules" ]] && echo "WARNING: Missing local Typescript environment, running './dev-setup.sh'." >&2 && ./dev-setup.sh
 
 npm run clean
-npm run build
-npx typedoc
 npm pack
-cd docs
-tar -vcaf ${workdir}/anaconda-opentelemetry-html-${version}.tgz *
-cd -
+check_failed $?
+npm run docs
+check_failed $?
+tar -vcaf ./anaconda-opentelemetry-html-${version}.tgz docs
+
+exit 0

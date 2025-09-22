@@ -48,6 +48,6 @@
     "test:unit": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --selectProjects unit",
     "test:integration": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --selectProjects integration",
     "coverage": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --selectProjects unit --coverage",
-    "docs": "typedoc"
+    "docs": "typedoc && export __VER=\"$(npm pkg get version | sed 's/\"//g')\" && tar -vcaf ./anaconda-opentelemetry-html-${__VER}.tgz docs && unset __VER"
   }
 }
