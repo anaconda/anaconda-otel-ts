@@ -100,7 +100,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          gh release upload test \
+          gh release upload ${{ github.event.release.tag_name }} \
             "${{ steps.package_info.outputs.npm_package }}" \
             "${{ steps.package_info.outputs.docs_package }}" \
             --clobber \
