@@ -3,9 +3,6 @@ name: "[CD] Build and Upload NPM Package on Release"
 on:
   release:
     types: [created]
-  push:
-    branches:
-      - 'CD-changes'
 
 jobs:
   unit-tests:
