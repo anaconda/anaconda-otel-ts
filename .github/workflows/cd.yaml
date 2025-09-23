@@ -1,12 +1,8 @@
-name: CD
+name: "[CD] Build and Upload NPM Package on Release"
 
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version number (e.g., 0.1.0)'
-        required: true
-        type: string
+  release:
+    types: [created]
 
 jobs:
   unit-tests:
@@ -45,7 +41,7 @@ jobs:
           otel-prod-token: ${{ secrets.OTEL_PROD_TOKEN }}
           otel-prod-endpoint: ${{ secrets.OTEL_PROD_ENDPOINT }}
   
-  build:
+  build-and-release:
     runs-on: ubuntu-latest
     needs: ['unit-tests', 'integration-tests']
     outputs:
@@ -55,75 +51,96 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ github.event.release.tag_name }}
         
       - name: Setup Node.js
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: '24'
           cache: 'npm'
-          
-      - name: Determine version
-        id: version
-        run: |
-          VERSION="${{ github.event.inputs.version }}"
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "Version: ${VERSION}"
-          
-      - name: Get package name
-        id: package
-        run: |
-          PACKAGE_NAME=$(node -p "require('./package.json').name")
-          echo "name=${PACKAGE_NAME}" >> $GITHUB_OUTPUT
-          echo "Package name: ${PACKAGE_NAME}"
-          
-      - name: Make script executable
-        run: chmod +x ./scripts/*
-          
-      - name: Run packaging script
-        run: ./scripts/build.sh
-          
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: release-artifacts
-          path: |
-            *.tgz
-          retention-days: 30
-          if-no-files-found: error
 
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
+      - name: Install jq (for version extraction)
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Install dependencies
+        run: npm ci
+          
+      - name: Make script executable and run
+        run: |
+          chmod +x ./scripts/*
+          ./scripts/build.sh
+
+      - name: Get package info and find generated files
+        id: package_info
+        run: |
+          VERSION=$(jq -r '.version' package.json)
+          PACKAGE_NAME=$(jq -r '.name' package.json)
+          
+          PACKAGE_FILENAME=$(echo "$PACKAGE_NAME" | sed 's/@//g; s/\//-/g')
+          
+          NPM_TGZ="${PACKAGE_FILENAME}-${VERSION}.tgz"
+          DOCS_TGZ="anaconda-opentelemetry-html-${VERSION}.tgz"
+          
+          echo "npm_package=${NPM_TGZ}" >> $GITHUB_OUTPUT
+          echo "docs_package=${DOCS_TGZ}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          
+          # Verify files exist
+          echo "Looking for NPM package: ${NPM_TGZ}"
+          echo "Looking for docs package: ${DOCS_TGZ}"
+          ls -la *.tgz
+
+      # - name: Upload to Release
+      #   env:
+      #     GITHUB_TOKEN: ${{ github.token }}
+      #   run: |
+      #     gh release upload ${{ github.event.release.tag_name }} "${{ env.TGZ_FILE }}" \
+      #       --clobber \
+      #       --repo ${{ github.repository }}
+          
+  #     - name: Upload build artifacts
+  #       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+  #       with:
+  #         name: release-artifacts
+  #         path: |
+  #           *.tgz
+  #         retention-days: 30
+  #         if-no-files-found: error
+
+  # release:
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     contents: write
       
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
-        with:
-          name: release-artifacts
+  #   steps:
+  #     - name: Download artifacts
+  #       uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+  #       with:
+  #         name: release-artifacts
           
-      - name: List downloaded artifacts
-        run: |
-          echo "Downloaded artifacts:"
-          ls -la
+  #     - name: List downloaded artifacts
+  #       run: |
+  #         echo "Downloaded artifacts:"
+  #         ls -la
     
-      - name: Create Release with gh CLI
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Create release and upload all .tgz files in one command
-          gh release create "v${{ needs.build.outputs.version }}" \
-            --repo "${{ github.repository }}" \
-            --title "Release v${{ needs.build.outputs.version }}" \
-            --notes "## Release v${{ needs.build.outputs.version }}
+  #     - name: Create Release with gh CLI
+  #       env:
+  #         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #       run: |
+  #         # Create release and upload all .tgz files in one command
+  #         gh release create "v${{ needs.build.outputs.version }}" \
+  #           --repo "${{ github.repository }}" \
+  #           --title "Release v${{ needs.build.outputs.version }}" \
+  #           --notes "## Release v${{ needs.build.outputs.version }}
           
-          ### Artifacts
-          - NPM Package: \`${{ needs.build.outputs.package-name }}-${{ needs.build.outputs.version }}.tgz\`
-          - Documentation: \`anaconda-opentelemetry-html-${{ needs.build.outputs.version }}.tgz\`
+  #         ### Artifacts
+  #         - NPM Package: \`${{ needs.build.outputs.package-name }}-${{ needs.build.outputs.version }}.tgz\`
+  #         - Documentation: \`anaconda-opentelemetry-html-${{ needs.build.outputs.version }}.tgz\`
           
-          ### Installation
-          \`\`\`bash
-          npm install ./${{ needs.build.outputs.package-name }}-${{ needs.build.outputs.version }}.tgz
-          \`\`\`" \
-            *.tgz
+  #         ### Installation
+  #         \`\`\`bash
+  #         npm install ./${{ needs.build.outputs.package-name }}-${{ needs.build.outputs.version }}.tgz
+  #         \`\`\`" \
+  #           *.tgz
