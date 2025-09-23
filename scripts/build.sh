@@ -23,8 +23,8 @@ version="0.0.0"
 npm run clean
 npm pack
 check_failed $?
-# npm run docs
-# check_failed $?
-# tar -vcaf ./anaconda-opentelemetry-html-${version}.tgz docs
+npm run docs
+check_failed $?
+tar -vcaf ./anaconda-opentelemetry-html-${version}.tgz docs
 
 exit 0
