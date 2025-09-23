@@ -8,45 +8,45 @@ on:
       - 'CD-changes'
 
 jobs:
-  # unit-tests:
-  #   name: Unit Tests for Typescript
-  #   runs-on: ubuntu-latest
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       node-version: ['20.x', '22.x', '24.x']
+  unit-tests:
+    name: Unit Tests for Typescript
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['20.x', '22.x', '24.x']
 
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-  #     - name: Run Unit Tests
-  #       uses: ./.github/actions/typescript/unit-tests/
-  #       with:
-  #         node-version: ${{ matrix.node-version }}
+      - name: Run Unit Tests
+        uses: ./.github/actions/typescript/unit-tests/
+        with:
+          node-version: ${{ matrix.node-version }}
           
-  # integration-tests:
-  #   name: Test Integration of Typescript ${{ matrix.python-version }}
-  #   runs-on: ubuntu-latest
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       node-version: ['24.x']
+  integration-tests:
+    name: Test Integration of Typescript ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['24.x']
 
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-  #     - name: Run Integration Tests
-  #       uses: ./.github/actions/typescript/integration-tests
-  #       with:
-  #         node-version: ${{ matrix.python-version }}
-  #         otel-prod-token: ${{ secrets.OTEL_PROD_TOKEN }}
-  #         otel-prod-endpoint: ${{ secrets.OTEL_PROD_ENDPOINT }}
+      - name: Run Integration Tests
+        uses: ./.github/actions/typescript/integration-tests
+        with:
+          node-version: ${{ matrix.python-version }}
+          otel-prod-token: ${{ secrets.OTEL_PROD_TOKEN }}
+          otel-prod-endpoint: ${{ secrets.OTEL_PROD_ENDPOINT }}
   
   build-and-release:
     runs-on: ubuntu-latest
-    # needs: ['unit-tests', 'integration-tests']
+    needs: ['unit-tests', 'integration-tests']
     outputs:
       version: ${{ steps.version.outputs.version }}
       package-name: ${{ steps.package.outputs.name }}
@@ -87,65 +87,24 @@ jobs:
           
           echo "npm_package=${NPM_TGZ}" >> $GITHUB_OUTPUT
           echo "docs_package=${DOCS_TGZ}" >> $GITHUB_OUTPUT
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          
-          # Verify files exist
-          echo "Looking for NPM package: ${NPM_TGZ}"
-          echo "Looking for docs package: ${DOCS_TGZ}"
-          ls -la *.tgz
+
+          # Check if both files exist and fail if not
+          if [[ ! -f "${NPM_TGZ}" ]]; then
+            echo "ERROR: NPM package file '${NPM_TGZ}' not found!"
+            exit 1
+          fi
+
+          if [[ ! -f "${DOCS_TGZ}" ]]; then
+            echo "ERROR: Docs package file '${DOCS_TGZ}' not found!"
+            exit 1
+          fi
 
       - name: Upload to Release
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          gh release upload test "${{ steps.package_info.outputs.npm_package }}" \
+          gh release upload test \
+            "${{ steps.package_info.outputs.npm_package }}" \
+            "${{ steps.package_info.outputs.docs_package }}" \
             --clobber \
             --repo ${{ github.repository }}
-
-  # ${{ github.event.release.tag_name }}
-
-  #     - name: Upload build artifacts
-  #       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-  #       with:
-  #         name: release-artifacts
-  #         path: |
-  #           *.tgz
-  #         retention-days: 30
-  #         if-no-files-found: error
-
-  # release:
-  #   needs: build
-  #   runs-on: ubuntu-latest
-  #   permissions:
-  #     contents: write
-      
-  #   steps:
-  #     - name: Download artifacts
-  #       uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
-  #       with:
-  #         name: release-artifacts
-          
-  #     - name: List downloaded artifacts
-  #       run: |
-  #         echo "Downloaded artifacts:"
-  #         ls -la
-    
-  #     - name: Create Release with gh CLI
-  #       env:
-  #         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  #       run: |
-  #         # Create release and upload all .tgz files in one command
-  #         gh release create "v${{ needs.build.outputs.version }}" \
-  #           --repo "${{ github.repository }}" \
-  #           --title "Release v${{ needs.build.outputs.version }}" \
-  #           --notes "## Release v${{ needs.build.outputs.version }}
-          
-  #         ### Artifacts
-  #         - NPM Package: \`${{ needs.build.outputs.package-name }}-${{ needs.build.outputs.version }}.tgz\`
-  #         - Documentation: \`anaconda-opentelemetry-html-${{ needs.build.outputs.version }}.tgz\`
-          
-  #         ### Installation
-  #         \`\`\`bash
-  #         npm install ./${{ needs.build.outputs.package-name }}-${{ needs.build.outputs.version }}.tgz
-  #         \`\`\`" \
-  #           *.tgz
