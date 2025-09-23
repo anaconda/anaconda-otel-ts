@@ -3,6 +3,9 @@ name: "[CD] Build and Upload NPM Package on Release"
 on:
   release:
     types: [created]
+  push:
+    branches:
+      - 'CD-changes'
 
 jobs:
   unit-tests:
@@ -91,14 +94,16 @@ jobs:
           echo "Looking for docs package: ${DOCS_TGZ}"
           ls -la *.tgz
 
-      # - name: Upload to Release
-      #   env:
-      #     GITHUB_TOKEN: ${{ github.token }}
-      #   run: |
-      #     gh release upload ${{ github.event.release.tag_name }} "${{ env.TGZ_FILE }}" \
-      #       --clobber \
-      #       --repo ${{ github.repository }}
-          
+      - name: Upload to Release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload test "${{ env.TGZ_FILE }}" \
+            --clobber \
+            --repo ${{ github.repository }}
+
+  # ${{ github.event.release.tag_name }}
+
   #     - name: Upload build artifacts
   #       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
   #       with:
