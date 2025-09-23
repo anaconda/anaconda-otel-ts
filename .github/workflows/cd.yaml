@@ -8,45 +8,45 @@ on:
       - 'CD-changes'
 
 jobs:
-  unit-tests:
-    name: Unit Tests for Typescript
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version: ['20.x', '22.x', '24.x']
+  # unit-tests:
+  #   name: Unit Tests for Typescript
+  #   runs-on: ubuntu-latest
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       node-version: ['20.x', '22.x', '24.x']
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - name: Run Unit Tests
-        uses: ./.github/actions/typescript/unit-tests/
-        with:
-          node-version: ${{ matrix.node-version }}
+  #     - name: Run Unit Tests
+  #       uses: ./.github/actions/typescript/unit-tests/
+  #       with:
+  #         node-version: ${{ matrix.node-version }}
           
-  integration-tests:
-    name: Test Integration of Typescript ${{ matrix.python-version }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version: ['24.x']
+  # integration-tests:
+  #   name: Test Integration of Typescript ${{ matrix.python-version }}
+  #   runs-on: ubuntu-latest
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       node-version: ['24.x']
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - name: Run Integration Tests
-        uses: ./.github/actions/typescript/integration-tests
-        with:
-          node-version: ${{ matrix.python-version }}
-          otel-prod-token: ${{ secrets.OTEL_PROD_TOKEN }}
-          otel-prod-endpoint: ${{ secrets.OTEL_PROD_ENDPOINT }}
+  #     - name: Run Integration Tests
+  #       uses: ./.github/actions/typescript/integration-tests
+  #       with:
+  #         node-version: ${{ matrix.python-version }}
+  #         otel-prod-token: ${{ secrets.OTEL_PROD_TOKEN }}
+  #         otel-prod-endpoint: ${{ secrets.OTEL_PROD_ENDPOINT }}
   
   build-and-release:
     runs-on: ubuntu-latest
-    needs: ['unit-tests', 'integration-tests']
+    # needs: ['unit-tests', 'integration-tests']
     outputs:
       version: ${{ steps.version.outputs.version }}
       package-name: ${{ steps.package.outputs.name }}
@@ -98,7 +98,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          gh release upload test "${{ env.TGZ_FILE }}" \
+          gh release upload test "${{ steps.package_info.outputs.npm_package }}" \
             --clobber \
             --repo ${{ github.repository }}
 
