@@ -3,6 +3,12 @@ name: "[CD] Build and Upload NPM Package on Release"
 on:
   release:
     types: [created]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag name to build and upload packages for'
+        required: true
+        type: string
 
 jobs:
   unit-tests:
@@ -100,7 +106,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          gh release upload ${{ github.event.release.tag_name }} \
+          RELEASE_TAG="${{ github.event.release.tag_name || github.event.inputs.release_tag }}"
+
+          gh release upload "$RELEASE_TAG" \
             "${{ steps.package_info.outputs.npm_package }}" \
             "${{ steps.package_info.outputs.docs_package }}" \
             --clobber \
