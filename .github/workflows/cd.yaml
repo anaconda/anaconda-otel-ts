@@ -1,4 +1,4 @@
-name: "[CD] Build and Upload NPM Package on Release"
+name: CD
 
 on:
   release:
