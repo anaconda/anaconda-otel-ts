@@ -1,5 +1,5 @@
 {
-  "name": "@anaconda/opentelemetry",
+  "name": "anaconda-opentelemetry",
   "version": "0.8.1",
   "license": "Apache-2.0",
   "type": "module",
