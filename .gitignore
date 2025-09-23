@@ -186,6 +186,7 @@ cython_debug/
 
 ################# Typescript
 node_modules/
+docs/
 
 # ignore compiled js files used for testing
 src/*.js
