@@ -84,63 +84,24 @@ jobs:
           
           echo "npm_package=${NPM_TGZ}" >> $GITHUB_OUTPUT
           echo "docs_package=${DOCS_TGZ}" >> $GITHUB_OUTPUT
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          
-          # Verify files exist
-          echo "Looking for NPM package: ${NPM_TGZ}"
-          echo "Looking for docs package: ${DOCS_TGZ}"
-          ls -la *.tgz
 
-      # - name: Upload to Release
-      #   env:
-      #     GITHUB_TOKEN: ${{ github.token }}
-      #   run: |
-      #     gh release upload ${{ github.event.release.tag_name }} "${{ env.TGZ_FILE }}" \
-      #       --clobber \
-      #       --repo ${{ github.repository }}
-          
-  #     - name: Upload build artifacts
-  #       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-  #       with:
-  #         name: release-artifacts
-  #         path: |
-  #           *.tgz
-  #         retention-days: 30
-  #         if-no-files-found: error
+          # Check if both files exist and fail if not
+          if [[ ! -f "${NPM_TGZ}" ]]; then
+            echo "ERROR: NPM package file '${NPM_TGZ}' not found!"
+            exit 1
+          fi
 
-  # release:
-  #   needs: build
-  #   runs-on: ubuntu-latest
-  #   permissions:
-  #     contents: write
-      
-  #   steps:
-  #     - name: Download artifacts
-  #       uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
-  #       with:
-  #         name: release-artifacts
-          
-  #     - name: List downloaded artifacts
-  #       run: |
-  #         echo "Downloaded artifacts:"
-  #         ls -la
-    
-  #     - name: Create Release with gh CLI
-  #       env:
-  #         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  #       run: |
-  #         # Create release and upload all .tgz files in one command
-  #         gh release create "v${{ needs.build.outputs.version }}" \
-  #           --repo "${{ github.repository }}" \
-  #           --title "Release v${{ needs.build.outputs.version }}" \
-  #           --notes "## Release v${{ needs.build.outputs.version }}
-          
-  #         ### Artifacts
-  #         - NPM Package: \`${{ needs.build.outputs.package-name }}-${{ needs.build.outputs.version }}.tgz\`
-  #         - Documentation: \`anaconda-opentelemetry-html-${{ needs.build.outputs.version }}.tgz\`
-          
-  #         ### Installation
-  #         \`\`\`bash
-  #         npm install ./${{ needs.build.outputs.package-name }}-${{ needs.build.outputs.version }}.tgz
-  #         \`\`\`" \
-  #           *.tgz
+          if [[ ! -f "${DOCS_TGZ}" ]]; then
+            echo "ERROR: Docs package file '${DOCS_TGZ}' not found!"
+            exit 1
+          fi
+
+      - name: Upload to Release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload test \
+            "${{ steps.package_info.outputs.npm_package }}" \
+            "${{ steps.package_info.outputs.docs_package }}" \
+            --clobber \
+            --repo ${{ github.repository }}
