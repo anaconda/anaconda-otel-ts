@@ -27,7 +27,7 @@ jobs:
         uses: ./.github/actions/typescript/unit-tests/
         with:
           node-version: ${{ matrix.node-version }}
-          
+
   integration-tests:
     name: Test Integration of Typescript ${{ matrix.python-version }}
     runs-on: ubuntu-latest
@@ -46,24 +46,25 @@ jobs:
           node-version: ${{ matrix.python-version }}
           otel-prod-token: ${{ secrets.OTEL_PROD_TOKEN }}
           otel-prod-endpoint: ${{ secrets.OTEL_PROD_ENDPOINT }}
-  
+
   build-and-release:
     runs-on: ubuntu-latest
     needs: ['unit-tests', 'integration-tests']
     outputs:
       version: ${{ steps.version.outputs.version }}
       package-name: ${{ steps.package.outputs.name }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ github.event.release.tag_name }}
-        
+
       - name: Setup Node.js
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
           cache: 'npm'
 
       - name: Install jq (for version extraction)
@@ -71,7 +72,7 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-          
+
       - name: Make script executable and run
         run: |
           chmod +x ./scripts/*
@@ -82,12 +83,12 @@ jobs:
         run: |
           VERSION=$(jq -r '.version' package.json)
           PACKAGE_NAME=$(jq -r '.name' package.json)
-          
+
           PACKAGE_FILENAME=$(echo "$PACKAGE_NAME" | sed 's/@//g; s/\//-/g')
-          
+
           NPM_TGZ="${PACKAGE_FILENAME}-${VERSION}.tgz"
           DOCS_TGZ="anaconda-opentelemetry-html-${VERSION}.tgz"
-          
+
           echo "npm_package=${NPM_TGZ}" >> $GITHUB_OUTPUT
           echo "docs_package=${DOCS_TGZ}" >> $GITHUB_OUTPUT
 
@@ -113,3 +114,8 @@ jobs:
             "${{ steps.package_info.outputs.docs_package }}" \
             --clobber \
             --repo ${{ github.repository }}
+
+      - name: Publish to NPM
+        env:
+          NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}"
+        run: npm publish --access public
