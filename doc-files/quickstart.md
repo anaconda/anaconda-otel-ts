@@ -53,6 +53,8 @@ A default endpoint must be passed either to the constructor. It is the only valu
 - grpcs (gRPC protocol, TLS enabled)
 - grpc (gRPC protocol, TLS disabled)
 
+For debugging purposes the enpoint(s) may be set to "console:" in configuration, or use the ATEL_USE_CONSOLE=1 environment variable to bypass sending to a collector and instead dumping to the console. This flag is also exposed in the `Configuration` class via the `setUseConsoleOutput` method.
+
 ### Metric and Tracing Configuration
 If your use case requires different schemes/TLS settings, auth tokens, or CA certs for different signal types: you can pass varying auth token and cert file parameters to the endpoint setter. The function signature is:
 
