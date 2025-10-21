@@ -23,23 +23,23 @@ function main() {
         .setMetricExportIntervalMs(100)
         .setTraceEndpoint(new URL("console:"))
         .setMetricsEndpoint(new URL("console:"))
-    const res = new ResourceAttributes("test_aotel", "1.0.0").setAttributes({foo: "test"})
+    const res = new ResourceAttributes("test_aotel", "1.2.3").setAttributes({foo: "test"})
 
     initializeTelemetry(config, res, ["metrics", "tracing"])
     console.log("=== Running...")
     traceBlock({name: "topLevel", attributes: {"someKey": "someValue"}}, (span: ASpan) => {
-        recordHistogram({name: "my-value", value: 42})
-        incrementCounter({name: "feature-1"})
+        recordHistogram({name: "myValue", value: 42})
+        incrementCounter({name: "feature1"})
         sleep(150)
 
-        span.addEvent("Event #1")
+        span.addEvent("Event1")
 
-        incrementCounter({name: "feature-1"})
-        incrementCounter({name: "feature-2"})
+        incrementCounter({name: "feature1"})
+        incrementCounter({name: "feature2"})
         sleep(150)
-        span.addEvent("Event #2")
+        span.addEvent("Event2")
 
-        decrementCounter({name: "feature-1", by: 2})
+        decrementCounter({name: "feature1", by: 2})
     })
     sleep(2000)
     console.log("=== Done.")

@@ -8,6 +8,7 @@ import { Configuration } from './config.js'
 import { ResourceAttributes } from './attributes.js'
 import { AnacondaCommon } from "./common.js"
 import { __noopASpan } from './signals-state.js'
+import { SpanExporterShim } from './exporter_shims.js';
 
 // ----- values -----
 import { diag, DiagConsoleLogger, DiagLogLevel } from '@opentelemetry/api';
@@ -121,6 +122,7 @@ export class AnacondaTrace extends AnacondaCommon {
     provider: NodeTracerProvider | null = null
     private processors: BatchSpanProcessor[] = []
     private depth: number = 0
+    private parentExporter:SpanExporterShim | undefined
 
     constructor(config: Configuration, attributes: ResourceAttributes) {
         super(config, attributes)
@@ -159,6 +161,15 @@ export class AnacondaTrace extends AnacondaCommon {
         this.provider!.forceFlush()
     }
 
+    private setExporter(newExporter: SpanExporter): SpanExporter | undefined {
+        if (this.parentExporter == undefined) {
+            this.parentExporter = new SpanExporterShim(newExporter)
+            return undefined
+        } else {
+            return this.parentExporter.swapExporter(newExporter)
+        }
+    }
+
     makeBatchProcessor(scheme: string, url: URL, httpHeaders: Record<string,string>,
                        creds?: ChannelCredentials): BatchSpanProcessor | undefined {
         var urlStr = url.href
@@ -169,16 +180,19 @@ export class AnacondaTrace extends AnacondaCommon {
                 headers: httpHeaders,
                  credentials: creds
             });
-            return new BatchSpanProcessor(exporter)
+            this.setExporter(exporter)
+            return new BatchSpanProcessor(this.parentExporter!)
         } else if (scheme === 'http:' || scheme === 'https:') {
             const exporter = new OTLPTraceExporterHTTP({
                 url: urlStr,
                 headers: httpHeaders
             });
-            return new BatchSpanProcessor(exporter)
+            this.setExporter(exporter)
+            return new BatchSpanProcessor(this.parentExporter!)
         } else if (scheme === 'console:') {
             const exporter = new ConsoleSpanExporter()
-            return new BatchSpanProcessor(exporter)
+            this.setExporter(exporter)
+            return new BatchSpanProcessor(this.parentExporter!)
         }
         this.warn(`Received bad scheme for tracing: ${scheme}!`)
         return undefined
