@@ -217,20 +217,19 @@ export class AnacondaMetrics extends AnacondaCommon {
         if (this.config.useDebug) {
             diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.DEBUG);
         }
-        this.forEachMetricsEndpoints((endpoint, authToken, certFile) => {
-            const scheme = endpoint.protocol
-            const ep = new URL(endpoint.href)
-            this.debug(`Connecting to metrics endpoint '${ep.href}'.`)
-            ep.protocol = ep.protocol.replace("grpcs:", "https:")
-            ep.protocol = ep.protocol.replace("grpc:", "http:")
-            var creds: ChannelCredentials | undefined = this.readCredentials(scheme, certFile)
-            var headers: Record<string,string> = authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
-            if (scheme.startsWith('http')) {
-                headers['Content-Type'] = 'application/x-protobuf'
-            }
-            const reader: PeriodicExportingMetricReader | undefined = this.makeReader(scheme, ep, headers, creds)
-            if (reader) { this.readers.push(reader!) }
-        })
+        var [endpoint, authToken, certFile] = this.config.getMetricsEndpointTuple()
+        const scheme = endpoint.protocol
+        const ep = new URL(endpoint.href)
+        this.debug(`Connecting to metrics endpoint '${ep.href}'.`)
+        ep.protocol = ep.protocol.replace("grpcs:", "https:")
+        ep.protocol = ep.protocol.replace("grpc:", "http:")
+        var creds: ChannelCredentials | undefined = this.readCredentials(scheme, certFile)
+        var headers: Record<string,string> = authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
+        if (scheme.startsWith('http')) {
+            headers['Content-Type'] = 'application/x-protobuf'
+        }
+        const reader: PeriodicExportingMetricReader | undefined = this.makeReader(scheme, ep, headers, creds)
+        if (reader) { this.readers.push(reader!) }
         this.meterProvider = new MeterProvider({ readers: this.readers, resource: this.resources })
         this.meter = this.meterProvider.getMeter(this.serviceName, this.serviceVersion)
         if (this.config.getUseDebug()) {

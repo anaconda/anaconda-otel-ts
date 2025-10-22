@@ -226,17 +226,16 @@ export class AnacondaTrace extends AnacondaCommon {
         if (this.config.useDebug) {
             diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.DEBUG);
         }
-        this.forEachTraceEndpoints((endpoint, authToken, certFile) => {
-            const scheme = endpoint.protocol
-            const ep = new URL(endpoint.href)
-            this.debug(`Connecting to traces endpoint '${ep.href}'.`)
-            ep.protocol = ep.protocol.replace("grpcs:", "https:")
-            ep.protocol = ep.protocol.replace("grpc:", "http:")
-            var creds: ChannelCredentials | undefined = this.readCredentials(scheme, certFile)
-            const headers: Record<string,string> = authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
-            const processor: BatchSpanProcessor | undefined = this.makeBatchProcessor(scheme, ep, headers, creds)
-            if (processor) { this.processors.push(processor!) }
-        })
+        var [endpoint, authToken, certFile] = this.config.getTraceEndpointTuple()
+        const scheme = endpoint.protocol
+        const ep = new URL(endpoint.href)
+        this.debug(`Connecting to traces endpoint '${ep.href}'.`)
+        ep.protocol = ep.protocol.replace("grpcs:", "https:")
+        ep.protocol = ep.protocol.replace("grpc:", "http:")
+        var creds: ChannelCredentials | undefined = this.readCredentials(scheme, certFile)
+        const headers: Record<string,string> = authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
+        const processor: BatchSpanProcessor | undefined = this.makeBatchProcessor(scheme, ep, headers, creds)
+        if (processor) { this.processors.push(processor!) }
         this.provider = new NodeTracerProvider({
             spanProcessors: this.processors,
             resource: this.resources

@@ -122,147 +122,83 @@ test("Verify setUseConsoleOutput value", () => {
 })
 
 test("Verify setting and looping through metrics endpoints", () => {
-    var count = 0
     var config = new Configuration()
     var impl = toImpl(config)
     expect(impl).toBeDefined()
-    impl.forEachMetricsEndpoints((endpoint, authToken, certFile) => {
-        expect(endpoint.toString()).toBe(InternalConfiguration.defaultUrl.toString())
-        expect(authToken).toBeUndefined()
-        expect(certFile).toBeUndefined()
-        count++
-    })
-    expect(count).toBe(1)
-    // *** For the future addMetricsEndpoint Feature ***
-    // config.addMetricsEndpoint(new URL("grpc://metrics.mydomain.com:1234"), "Metrics_Token", "/tmp/metrics.pem")
-    // config.addMetricsEndpoint(new URL("grpcs://metrics2.mydomain.com:1234"))
-    // count = 0
-    // impl.forEachMetricsEndpoints((endpoint, authToken, certFile) => {
-    //     if (count === 0) {
-    //         expect(endpoint.toString()).toBe("grpc://metrics.mydomain.com:1234")
-    //         expect(authToken).toBe("Metrics_Token")
-    //         expect(certFile).toBe("/tmp/metrics.pem")
-    //     } else if (count === 1) {
-    //         expect(endpoint.toString()).toBe("grpcs://metrics2.mydomain.com:1234")
-    //         expect(authToken).toBeUndefined()
-    //         expect(certFile).toBeUndefined()
-    //     }
-    //     count++
-    // })
-    // expect(count).toBe(2)
-    count = 0
+    var tuple = impl.getMetricsEndpointTuple()
+    expect(tuple[0].toString()).toBe(InternalConfiguration.defaultUrl.toString())
+    expect(tuple[1]).toBeUndefined()
+    expect(tuple[2]).toBeUndefined()
+
     config.setUseConsoleOutput(true)
-    impl.forEachMetricsEndpoints((endpoint, authToken, certFile) => {
-        expect(endpoint.toString()).toBe(InternalConfiguration.consoleUrl.toString())
-        expect(authToken).toBeUndefined()
-        expect(certFile).toBeUndefined()
-        count++
-    })
-    expect(count).toBe(1)
-    count = 0
+    tuple = impl.getMetricsEndpointTuple()
+    expect(tuple[0].toString()).toBe(InternalConfiguration.consoleUrl.toString())
+    expect(tuple[1]).toBeUndefined()
+    expect(tuple[2]).toBeUndefined()
+
     config.setUseConsoleOutput(false)
     process.env.ATEL_METRICS_ENDPOINT = "https://metrics.mydomain.com:1234"
-    impl.forEachMetricsEndpoints((endpoint, authToken, certFile) => {
-        expect(endpoint.toString()).toBe("https://metrics.mydomain.com:1234/")
-        expect(authToken).toBeUndefined()
-        expect(certFile).toBeUndefined()
-        count++
-    })
+    tuple = impl.getMetricsEndpointTuple()
+    expect(tuple[0].toString()).toBe("https://metrics.mydomain.com:1234/")
+    expect(tuple[1]).toBeUndefined()
+    expect(tuple[2]).toBeUndefined()
+
     process.env.ATEL_METRICS_AUTH_TOKEN = "Metrics_Token"
     process.env.ATEL_METRICS_TLS_PRIVATE_CA_CERT_FILE = "/tmp/metrics.pem"
-    impl.forEachMetricsEndpoints((endpoint, authToken, certFile) => {
-        expect(endpoint.toString()).toBe("https://metrics.mydomain.com:1234/")
-        expect(authToken).toBe("Metrics_Token")
-        expect(certFile).toBe("/tmp/metrics.pem")
-        count++
-    })
-    expect(count).toBe(2)
+    tuple = impl.getMetricsEndpointTuple()
+    expect(tuple[0].toString()).toBe("https://metrics.mydomain.com:1234/")
+    expect(tuple[1]).toBe("Metrics_Token")
+    expect(tuple[2]).toBe("/tmp/metrics.pem")
+
     process.env.ATEL_METRICS_ENDPOINT = undefined
     process.env.ATEL_METRICS_AUTH_TOKEN = undefined
     process.env.ATEL_METRICS_TLS_PRIVATE_CA_CERT_FILE = undefined
 
-    count = 0
     config.setMetricsEndpoint(new URL("https://metrics3.mydomain.com:4567"), "Metrics_Token", "/tmp/metrics.pem")
-    expect(impl.metricsEndpoints.length).toBe(1)
-    expect(impl.getMetricsEndpointTupleList().length).toBe(1)
-    impl.forEachMetricsEndpoints((endpoint, authToken, certFile) => {
-        expect(endpoint.toString()).toBe("https://metrics3.mydomain.com:4567/")
-        expect(authToken).toBe("Metrics_Token")
-        expect(certFile).toBe("/tmp/metrics.pem")
-        count++
-    })
-    expect(count).toBe(1)
+    tuple = impl.getMetricsEndpointTuple()
+    expect(tuple[0].toString()).toBe("https://metrics3.mydomain.com:4567/")
+    expect(tuple[1]).toBe("Metrics_Token")
+    expect(tuple[2]).toBe("/tmp/metrics.pem")
 })
 
 test("Verify setting and looping through trace endpoints", () => {
-    var count = 0
     var config = new Configuration()
     var impl = toImpl(config)
     expect(impl).toBeDefined()
-    impl.forEachTraceEndpoints((endpoint, authToken, certFile) => {
-        expect(endpoint.toString()).toBe(InternalConfiguration.defaultUrl.toString())
-        expect(authToken).toBeUndefined()
-        expect(certFile).toBeUndefined()
-        count++
-    })
-    expect(count).toBe(1)
-    // *** For the future addTraceEndpoint Feature ***
-    // config.addTraceEndpoint(new URL("grpc://trace.mydomain.com:1234"), "Trace_Token", "/tmp/trace.pem")
-    // config.addTraceEndpoint(new URL("grpcs://trace2.mydomain.com:1234"))
-    // count = 0
-    // impl.forEachTraceEndpoints((endpoint, authToken, certFile) => {
-    //     if (count === 0) {
-    //         expect(endpoint.toString()).toBe("grpc://trace.mydomain.com:1234")
-    //         expect(authToken).toBe("Trace_Token")
-    //         expect(certFile).toBe("/tmp/trace.pem")
-    //     } else if (count === 1) {
-    //         expect(endpoint.toString()).toBe("grpcs://trace2.mydomain.com:1234")
-    //         expect(authToken).toBeUndefined()
-    //         expect(certFile).toBeUndefined()
-    //     }
-    //     count++
-    // })
-    // expect(count).toBe(2)
-    count = 0
+    var tuple = impl.getTraceEndpointTuple()
+    expect(tuple[0].toString()).toBe(InternalConfiguration.defaultUrl.toString())
+    expect(tuple[1]).toBeUndefined()
+    expect(tuple[2]).toBeUndefined()
+
     config.setUseConsoleOutput(true)
-    impl.forEachTraceEndpoints((endpoint, authToken, certFile) => {
-        expect(endpoint.toString()).toBe(InternalConfiguration.consoleUrl.toString())
-        expect(authToken).toBeUndefined()
-        expect(certFile).toBeUndefined()
-        count++
-    })
-    expect(count).toBe(1)
-    count = 0
+    tuple = impl.getTraceEndpointTuple()
+    expect(tuple[0].toString()).toBe(InternalConfiguration.consoleUrl.toString())
+    expect(tuple[1]).toBeUndefined()
+    expect(tuple[2]).toBeUndefined()
+
     config.setUseConsoleOutput(false)
     process.env.ATEL_TRACE_ENDPOINT = "https://trace.mydomain.com:1234"
-    impl.forEachTraceEndpoints((endpoint, authToken, certFile) => {
-        expect(endpoint.toString()).toBe("https://trace.mydomain.com:1234/")
-        expect(authToken).toBeUndefined()
-        expect(certFile).toBeUndefined()
-        count++
-    })
+    tuple = impl.getTraceEndpointTuple()
+    expect(tuple[0].toString()).toBe("https://trace.mydomain.com:1234/")
+    expect(tuple[1]).toBeUndefined()
+    expect(tuple[2]).toBeUndefined()
+
     process.env.ATEL_TRACE_AUTH_TOKEN = "Trace_Token"
     process.env.ATEL_TRACE_TLS_PRIVATE_CA_CERT_FILE = "/tmp/trace.pem"
-    impl.forEachTraceEndpoints((endpoint, authToken, certFile) => {
-        expect(endpoint.toString()).toBe("https://trace.mydomain.com:1234/")
-        expect(authToken).toBe("Trace_Token")
-        expect(certFile).toBe("/tmp/trace.pem")
-        count++
-    })
-    expect(count).toBe(2)
+    tuple = impl.getTraceEndpointTuple()
+    expect(tuple[0].toString()).toBe("https://trace.mydomain.com:1234/")
+    expect(tuple[1]).toBe("Trace_Token")
+    expect(tuple[2]).toBe("/tmp/trace.pem")
+
     process.env.ATEL_TRACE_ENDPOINT = undefined
     process.env.ATEL_TRACE_AUTH_TOKEN = undefined
     process.env.ATEL_TRACE_TLS_PRIVATE_CA_CERT_FILE = undefined
 
-    count = 0
     config.setTraceEndpoint(new URL("https://trace3.mydomain.com:4567"), "Trace_Token", "/tmp/trace.pem")
-    impl.forEachTraceEndpoints((endpoint, authToken, certFile) => {
-        expect(endpoint.toString()).toBe("https://trace3.mydomain.com:4567/")
-        expect(authToken).toBe("Trace_Token")
-        expect(certFile).toBe("/tmp/trace.pem")
-        count++
-    })
-    expect(count).toBe(1)
+    tuple = impl.getTraceEndpointTuple()
+    expect(tuple[0].toString()).toBe("https://trace3.mydomain.com:4567/")
+    expect(tuple[1]).toBe("Trace_Token")
+    expect(tuple[2]).toBe("/tmp/trace.pem")
 })
 
 test("Verify the export interval value", () => {
@@ -346,43 +282,41 @@ test("Verify set*Endpoint methods", () => {
 
     // Set metrics endpoint
     config.setMetricsEndpoint(new URL("https://metrics.mydomain.com:1234"), "Metrics_Token", "/tmp/metrics.pem")
-    impl.forEachMetricsEndpoints((endpoint, authToken, certFile) => {
-        expect(endpoint.toString()).toBe("https://metrics.mydomain.com:1234/")
-        expect(authToken).toBe("Metrics_Token")
-        expect(certFile).toBe("/tmp/metrics.pem")
-    })
+    var tuple = impl.getMetricsEndpointTuple()
+    expect(tuple[0].toString()).toBe("https://metrics.mydomain.com:1234/")
+    expect(tuple[1]).toBe("Metrics_Token")
+    expect(tuple[2]).toBe("/tmp/metrics.pem")
+
     config.setMetricsEndpoint(new URL("https://metrics.mydomain.com:1234"), "Metrics_Token")
-    impl.forEachMetricsEndpoints((endpoint, authToken, certFile) => {
-        expect(endpoint.toString()).toBe("https://metrics.mydomain.com:1234/")
-        expect(authToken).toBe("Metrics_Token")
-        expect(certFile).toBeUndefined()
-    })
+    tuple = impl.getMetricsEndpointTuple()
+    expect(tuple[0].toString()).toBe("https://metrics.mydomain.com:1234/")
+    expect(tuple[1]).toBe("Metrics_Token")
+    expect(tuple[2]).toBeUndefined()
+
     config.setMetricsEndpoint(new URL("https://metrics.mydomain.com:1234"))
-    impl.forEachMetricsEndpoints((endpoint, authToken, certFile) => {
-        expect(endpoint.toString()).toBe("https://metrics.mydomain.com:1234/")
-        expect(authToken).toBeUndefined()
-        expect(certFile).toBeUndefined()
-    })
+    tuple = impl.getMetricsEndpointTuple()
+    expect(tuple[0].toString()).toBe("https://metrics.mydomain.com:1234/")
+    expect(tuple[1]).toBeUndefined()
+    expect(tuple[2]).toBeUndefined()
 
     // Set trace endpoint
     config.setTraceEndpoint(new URL("https://trace.mydomain.com:1234"), "Trace_Token", "/tmp/trace.pem")
-    impl.forEachTraceEndpoints((endpoint, authToken, certFile) => {
-        expect(endpoint.toString()).toBe("https://trace.mydomain.com:1234/")
-        expect(authToken).toBe("Trace_Token")
-        expect(certFile).toBe("/tmp/trace.pem")
-    })
+    tuple = impl.getTraceEndpointTuple()
+    expect(tuple[0].toString()).toBe("https://trace.mydomain.com:1234/")
+    expect(tuple[1]).toBe("Trace_Token")
+    expect(tuple[2]).toBe("/tmp/trace.pem")
+
     config.setTraceEndpoint(new URL("https://trace.mydomain.com:1234"), "Trace_Token")
-    impl.forEachTraceEndpoints((endpoint, authToken, certFile) => {
-        expect(endpoint.toString()).toBe("https://trace.mydomain.com:1234/")
-        expect(authToken).toBe("Trace_Token")
-        expect(certFile).toBeUndefined()
-    })
+    tuple = impl.getTraceEndpointTuple()
+    expect(tuple[0].toString()).toBe("https://trace.mydomain.com:1234/")
+    expect(tuple[1]).toBe("Trace_Token")
+    expect(tuple[2]).toBeUndefined()
+
     config.setTraceEndpoint(new URL("https://trace.mydomain.com:1234"))
-    impl.forEachTraceEndpoints((endpoint, authToken, certFile) => {
-        expect(endpoint.toString()).toBe("https://trace.mydomain.com:1234/")
-        expect(authToken).toBeUndefined()
-        expect(certFile).toBeUndefined()
-    })
+    tuple = impl.getTraceEndpointTuple()
+    expect(tuple[0].toString()).toBe("https://trace.mydomain.com:1234/")
+    expect(tuple[1]).toBeUndefined()
+    expect(tuple[2]).toBeUndefined()
 })
 
 test("test debug mode setting", () => {
