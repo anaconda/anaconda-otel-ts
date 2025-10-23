@@ -5,14 +5,22 @@ metrics using the provided configuration.
 
 ## Install the Package
 
-Install the OpenTelemetry Typescript telemetry package file ...
+Install the OpenTelemetry Typescript telemetry package file replacing {version} with the actual M.m.p version number...
 
-(need to determine where we are housing the package)
+```
+$ npm install https://github.com/anaconda/anaconda-otel-ts/releases/download/v{version}/anaconda-opentelemetry-{version}.tgz
+```
+
+For example at the time of this writing the latest version is 0.8.1 so the line to install would be:
+
+```
+$ npm install https://github.com/anaconda/anaconda-otel-ts/releases/download/v0.8.1/anaconda-opentelemetry-0.8.1.tgz
+```
 
 ---
 
 ## Example
-See the `example.ts` file to view a full code configuring the package as an example.
+See the [example.ts](https://github.com/anaconda/anaconda-otel-ts/blob/main/src/example.ts) file to view a full code configuring the package as an example.
 
 ## Configuration and ResourceAttributes
 There are two sets of values that need to be provided to `initializeTelemetry`: `Configuration` and `ResourceAttributes`
@@ -20,8 +28,8 @@ There are two sets of values that need to be provided to `initializeTelemetry`: 
   - These are key-value pairs used to configure the OpenTelemetry instrumentation like endpoint, logging_level, auth_token, etc.
 - `ResourceAttributes`
   - These are key-value pairs used as telemetry resource attributes. They can be thought of as labels and appear in the telemetry data stream
+  - Immutable: These values are fixed once the initializeTelemetry is called. For dynamic attributes, use the attributes passed to the signal event calls (incrementCounter, etc...).
   - These are called resource attributes because they are attached to every piece of telemetry after initialization happens
-  - Immutable
 
 Configs and ResourceAttributes can be created and passed via their respective objects: `Configuration` and `ResourceAttributes`.
 
@@ -44,6 +52,8 @@ A default endpoint must be passed either to the constructor. It is the only valu
 - http (HTTP protocol, TLS disabled)
 - grpcs (gRPC protocol, TLS enabled)
 - grpc (gRPC protocol, TLS disabled)
+
+For debugging purposes the enpoint(s) may be set to "console:" in configuration, or use the ATEL_USE_CONSOLE=1 environment variable to bypass sending to a collector and instead dumping to the console. This flag is also exposed in the `Configuration` class via the `setUseConsoleOutput` method.
 
 ### Metric and Tracing Configuration
 If your use case requires different schemes/TLS settings, auth tokens, or CA certs for different signal types: you can pass varying auth token and cert file parameters to the endpoint setter. The function signature is:
@@ -72,7 +82,7 @@ There are more fields than this which are documented in the API section and in t
 
 ## Initialize Telemetry
 The telemetry system is designed as singleton objects and only need to be initialzed once per process. Calling
-`initializeTelemetry` a second time will silently return with no errors and with no undesireable behaviors.
+`initializeTelemetry` a second time will silently return with no errors and with no undesireable behaviors. It also will not change anything from the initial call.
 
 Use the `initializeTelemetry` function to initialize exporters (No SSL in this example):
 
@@ -205,6 +215,7 @@ Metric names must start with a letter and then only contain alphanumeric or unde
 ---
 
 ## Tracing with Context Manager
+***<span style="color: red; background-color: black; padding: 3pt"> >>> This feature is still in alpha level code developement. <<<</span>***
 
 Wrap operations inside a tracing context using `traceBlock`:
 
@@ -260,4 +271,4 @@ const res = new ResourceAttributes("test_aotel", "1.0.0").setAttributes({foo: "t
 ```
 
 - If you set keys for any of the class parameters the most recent set operation will overwrite the pre-existing value
-- Setting parameters directly is not allowed, it is modified by adding keys/values
+- Setting parameters directly is not allowed, it is modified by adding keys/values pairs with setAttributes.
