@@ -187,6 +187,15 @@ export class AnacondaMetrics extends AnacondaCommon {
                 exportIntervalMillis: this.metricsExportIntervalMs
             });
             return reader
+        } else if (scheme === 'devnull:') {
+            this.debug(`Creating DevNull reader for endpoint '${url.href}'...`)
+            const exporter = new NoopMetricExporter()
+            this.setExporter(exporter)
+            const reader = new PeriodicExportingMetricReader({
+                exporter: this.parentExporter!,
+                exportIntervalMillis: this.metricsExportIntervalMs
+            });
+            return reader
         }
         this.warn(`Received bad scheme for metrics: ${scheme}!`)
         return undefined // Unknown

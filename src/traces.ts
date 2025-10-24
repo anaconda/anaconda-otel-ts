@@ -193,6 +193,10 @@ export class AnacondaTrace extends AnacondaCommon {
             const exporter = new ConsoleSpanExporter()
             this.setExporter(exporter)
             return new BatchSpanProcessor(this.parentExporter!)
+        } else if (scheme === 'devnull:') {
+            const exporter = new NoopSpanExporter()
+            this.setExporter(exporter)
+            return new BatchSpanProcessor(this.parentExporter!)
         }
         this.warn(`Received bad scheme for tracing: ${scheme}!`)
         return undefined
