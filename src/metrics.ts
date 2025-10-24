@@ -158,11 +158,6 @@ export class AnacondaMetrics extends AnacondaCommon {
                     sdkMetricsNS.AggregationTemporality.DELTA
             });
             this.setExporter(exporter)
-            const reader = new PeriodicExportingMetricReader({
-                exporter: this.parentExporter!,
-                exportIntervalMillis: this.metricsExportIntervalMs
-            });
-            return reader
         } else if (scheme === 'http:' || scheme === 'https:') {
             this.debug(`Creating HTTP reader for endpoint '${url.href}'...`)
             const exporter = new OTLPMetricExporterHTTP({
@@ -173,32 +168,23 @@ export class AnacondaMetrics extends AnacondaCommon {
                     sdkMetricsNS.AggregationTemporality.DELTA
             });
             this.setExporter(exporter)
-            const reader = new PeriodicExportingMetricReader({
-                exporter: this.parentExporter!,
-                exportIntervalMillis: this.metricsExportIntervalMs
-            });
-            return reader
         } else if (scheme === 'console:') {
             this.debug(`Creating Console reader for endpoint '${url.href}'...`)
             const exporter = new ConsoleMetricExporter()
             this.setExporter(exporter)
-            const reader = new PeriodicExportingMetricReader({
-                exporter: this.parentExporter!,
-                exportIntervalMillis: this.metricsExportIntervalMs
-            });
-            return reader
         } else if (scheme === 'devnull:') {
             this.debug(`Creating DevNull reader for endpoint '${url.href}'...`)
             const exporter = new NoopMetricExporter()
             this.setExporter(exporter)
-            const reader = new PeriodicExportingMetricReader({
-                exporter: this.parentExporter!,
-                exportIntervalMillis: this.metricsExportIntervalMs
-            });
-            return reader
+        } else {
+            this.warn(`Received bad scheme for metrics: ${scheme}!`)
+            return undefined // Unknown
         }
-        this.warn(`Received bad scheme for metrics: ${scheme}!`)
-        return undefined // Unknown
+        const reader = new PeriodicExportingMetricReader({
+            exporter: this.parentExporter!,
+            exportIntervalMillis: this.metricsExportIntervalMs
+        });
+        return reader
     }
 
     private readCredentials(scheme: string, certFile?: string): ChannelCredentials | undefined {

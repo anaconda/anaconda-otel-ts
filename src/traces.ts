@@ -181,25 +181,23 @@ export class AnacondaTrace extends AnacondaCommon {
                  credentials: creds
             });
             this.setExporter(exporter)
-            return new BatchSpanProcessor(this.parentExporter!)
         } else if (scheme === 'http:' || scheme === 'https:') {
             const exporter = new OTLPTraceExporterHTTP({
                 url: urlStr,
                 headers: httpHeaders
             });
             this.setExporter(exporter)
-            return new BatchSpanProcessor(this.parentExporter!)
         } else if (scheme === 'console:') {
             const exporter = new ConsoleSpanExporter()
             this.setExporter(exporter)
-            return new BatchSpanProcessor(this.parentExporter!)
         } else if (scheme === 'devnull:') {
             const exporter = new NoopSpanExporter()
             this.setExporter(exporter)
-            return new BatchSpanProcessor(this.parentExporter!)
+        } else {
+            this.warn(`Received bad scheme for tracing: ${scheme}!`)
+            return undefined
         }
-        this.warn(`Received bad scheme for tracing: ${scheme}!`)
-        return undefined
+        return new BatchSpanProcessor(this.parentExporter!)
     }
 
     readCredentials(scheme: string, certFile?: string): ChannelCredentials | undefined {
