@@ -5,6 +5,7 @@ import { type AttrMap } from './types.js';
 import { Configuration } from './config.js';
 import { ResourceAttributes } from './attributes.js';
 import { AnacondaCommon } from "./common.js";
+import { MetricExporterShim } from './exporter_shims.js';
 
 // ----- your value imports (keep as-is) -----
 import { diag, DiagConsoleLogger, DiagLogLevel } from '@opentelemetry/api';
@@ -37,6 +38,7 @@ import type {
   ResourceMetrics,
   MeterProvider as _MeterProvider,
   PeriodicExportingMetricReader as _PeriodicExportingMetricReader,
+  PeriodicExportingMetricReaderOptions as _PeriodicExportingMetricReaderOptions,
 } from '@opentelemetry/sdk-metrics';
 
 import type { ChannelCredentials as _ChannelCredentials } from '@grpc/grpc-js';
@@ -45,7 +47,7 @@ import type { ChannelCredentials as _ChannelCredentials } from '@grpc/grpc-js';
 type MeterProvider = _MeterProvider;
 type PeriodicExportingMetricReader = _PeriodicExportingMetricReader;
 type ChannelCredentials = _ChannelCredentials;
-
+type PeriodicExportingMetricReaderOptions = _PeriodicExportingMetricReaderOptions;
 
 export class CounterArgs {
     name: string = "";
@@ -66,6 +68,7 @@ export class AnacondaMetrics extends AnacondaCommon {
     mapOfHistograms: Record<string, Histogram> = {};
     meterProvider: MeterProvider | undefined = undefined
     meter: Meter | null = null;
+    parentExporter: MetricExporterShim | undefined
 
     constructor(config: Configuration, attributes: ResourceAttributes) {
         super(config, attributes);
@@ -132,6 +135,15 @@ export class AnacondaMetrics extends AnacondaCommon {
         return true
     }
 
+    private setExporter(newExporter: PushMetricExporter): PushMetricExporter | undefined {
+        if (this.parentExporter == undefined) {
+            this.parentExporter = new MetricExporterShim(newExporter)
+            return undefined
+        } else {
+            return this.parentExporter.swapExporter(newExporter)
+        }
+    }
+
     private makeReader(scheme: string, url: URL, httpHeaders: Record<string,string>, creds?: ChannelCredentials): PeriodicExportingMetricReader | undefined {
         this.debug(`Creating Reader for endpoint type '${scheme}'.`)
         var urlStr = url.href
@@ -145,8 +157,9 @@ export class AnacondaMetrics extends AnacondaCommon {
                     sdkMetricsNS.AggregationTemporality.CUMULATIVE :
                     sdkMetricsNS.AggregationTemporality.DELTA
             });
+            this.setExporter(exporter)
             const reader = new PeriodicExportingMetricReader({
-                exporter,
+                exporter: this.parentExporter!,
                 exportIntervalMillis: this.metricsExportIntervalMs
             });
             return reader
@@ -159,16 +172,18 @@ export class AnacondaMetrics extends AnacondaCommon {
                     sdkMetricsNS.AggregationTemporality.CUMULATIVE :
                     sdkMetricsNS.AggregationTemporality.DELTA
             });
+            this.setExporter(exporter)
             const reader = new PeriodicExportingMetricReader({
-                exporter,
+                exporter: this.parentExporter!,
                 exportIntervalMillis: this.metricsExportIntervalMs
             });
             return reader
         } else if (scheme === 'console:') {
             this.debug(`Creating Console reader for endpoint '${url.href}'...`)
             const exporter = new ConsoleMetricExporter()
+            this.setExporter(exporter)
             const reader = new PeriodicExportingMetricReader({
-                exporter,
+                exporter: this.parentExporter!,
                 exportIntervalMillis: this.metricsExportIntervalMs
             });
             return reader
@@ -260,11 +275,11 @@ export class NoopMetricExporter implements PushMetricExporter {
         resultCallback({ code: 0 });
     }
 
-    shutdown(): Promise<void> {
+    async shutdown(): Promise<void> {
         return Promise.resolve();
     }
 
-    forceFlush(): Promise<void> {
+    async forceFlush(): Promise<void> {
         return Promise.resolve();
     }
 }
