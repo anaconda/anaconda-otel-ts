@@ -10,7 +10,6 @@ import {
     initializeTelemetry,
     recordHistogram,
     ResourceAttributes,
-    traceBlock,
     traceBlockAsync,
     type ASpan
 } from "./index.js"

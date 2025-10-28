@@ -6,7 +6,6 @@ import { Configuration } from '../../src/config'
 import { ResourceAttributes } from '../../src/attributes'
 import {
     initializeTelemetry,
-    reinitializeTelemetry,
     changeSignalConnection,
     recordHistogram,
     decrementCounter,
@@ -140,22 +139,6 @@ test("incrementCounter with metrics initialized", () => {
     expect(result).toBe(true)
 })
 
-test("incrementCounter with metrics initialized then reinitialized", () => {
-    const config = new Configuration().setUseConsoleOutput(true)
-    const attributes = new ResourceAttributes("test_service", "0.0.1")
-
-    initializeTelemetry(config, attributes, ["metrics"])
-
-    var result = incrementCounter({name: "test_counter", forceUpDownCounter: false, by: 5, attributes: { key: "value" }})
-
-    expect(result).toBe(true)
-
-    reinitializeTelemetry(attributes)
-    result = incrementCounter({name: "test_counter2", forceUpDownCounter: true, by: 1, attributes: { key: "value2" }})
-
-    expect(result).toBe(true)
-})
-
 test("incrementCounter without metrics initialized", () => {
     const result = incrementCounter({name: "test_counter", forceUpDownCounter: false})
 
@@ -234,25 +217,6 @@ test("traceBlock with noop span when tracing not initialized", () => {
 
     expect(mockBlock).toHaveBeenCalledWith(__noopASpan)
     expect(console.warn).toHaveBeenCalledWith("*** WARNING: Tracing not initialized. Call initializeTelemetry with 'tracing' signal type first.")
-})
-
-test("test reinitialize for both", () =>{
-    const config = new Configuration().setUseConsoleOutput(true)
-    const attributes = new ResourceAttributes("test_service", "0.0.1")
-    const newAttributes = new ResourceAttributes("test_service", "0.0.1").setAttributes({userId: "some_user_id"})
-
-    expect(__initialized).toBe(false)
-    expect(__metrics).toBeUndefined()
-    expect(__tracing).toBeUndefined()
-
-    expect(reinitializeTelemetry(newAttributes)).toBe(false)
-
-    initializeTelemetry(config, attributes, ["metrics", "tracing"])
-    expect(__initialized).toBe(true)
-    expect(__metrics).toBeDefined()
-    expect(__tracing).toBeDefined()
-
-    expect(reinitializeTelemetry(newAttributes)).toBe(false) // New behavior.
 })
 
 test("changeSignalConnection for metrics and tracing", async () => {

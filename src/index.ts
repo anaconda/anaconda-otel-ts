@@ -7,7 +7,6 @@ export { Configuration } from './config.js';
 export { ResourceAttributes } from './attributes.js';
 export {
     initializeTelemetry,
-    reinitializeTelemetry,
     changeSignalConnection,
     recordHistogram,
     decrementCounter,

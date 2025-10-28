@@ -69,40 +69,6 @@ export function initializeTelemetry(config: Configuration,
 }
 
 /**
- * Reinitializes telemetry components (metrics and tracing) with updated resource attributes.
- *
- * This function updates the internal telemetry resources only if telemetry
- * has already been initialized. If telemetry is not yet initialized, it will
- * return `false` and perform no changes.
- *
- * @deprecated Please use the new method, changeSignalConnection()! This will be removed after
- *             2-3 releases and currently does nothing but return `false`.
- *
- * @param newAttributes - The new {@link ResourceAttributes} to apply to telemetry components.
- * @param newEndpoint - A possible default endpoint replacement.
- * @param newToken - A possible default token replacemennt.
- *
- * @returns `true` if telemetry was already initialized and reinitialization was performed,
- *          otherwise `false`.
- *
- * @remarks
- * - ___IMPORTANT___: This function fails with an exception if tracing is enabled and
- *   the code this method is called from is in a `traceBlock`. There is currently
- *   no way to unwrap the traceBlock stack.
- * - This function is safe to call multiple times, but it will only take effect
- *   after the initial telemetry setup has been completed.
- * - Both metrics and tracing components will be reinitialized if present.
- *
- * @throws Error - when inside a traceBlock!
- */
-export function reinitializeTelemetry(newAttributes: ResourceAttributes,
-                                      newEndpoint: URL | undefined = undefined,
-                                      newToken: string | undefined = undefined): boolean {
-    console.warn("DEPRECATED: The 'reinitializeTelemetry' function no longer does anything!")
-    return false
-}
-
-/**
  * Function used to change the endpoint or authorization token or both for a signal type.
  *
  * @param signal - Either 'metrics' or 'tracing' to select which connection to change.
