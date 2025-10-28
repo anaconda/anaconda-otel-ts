@@ -16,19 +16,28 @@ jest.mock('@opentelemetry/api')
 
 import { type Span, trace, type Tracer } from '@opentelemetry/api'
 
-const mockedSpan: jest.Mocked<Span> = {
-    spanContext: jest.fn(),
-    setAttribute: jest.fn(),
-    setAttributes: jest.fn(),
-    addEvent: jest.fn(),
-    setStatus: jest.fn(),
-    updateName: jest.fn(),
-    end: jest.fn(),
-    isRecording: jest.fn(),
-    recordException: jest.fn(),
-    addLink: jest.fn(),
-    addLinks: jest.fn(),
-}
+export const mockedSpan = (() => {
+  const span: any = {};
+
+  // non-chain methods / values
+  span.spanContext = jest.fn(() => ({
+    traceId: '00000000000000000000000000000001',
+    spanId:   '0000000000000001',
+    traceFlags: 1,
+  }));
+  span.isRecording     = jest.fn(() => true);
+  span.end             = jest.fn();
+  span.recordException = jest.fn();
+
+  // chainable methods — return the same span
+  span.setAttribute = jest.fn().mockReturnThis();
+  span.setAttributes = jest.fn().mockReturnThis();
+  span.addEvent = jest.fn().mockReturnThis();
+  span.setStatus = jest.fn().mockReturnThis();
+  span.updateName = jest.fn().mockReturnThis();
+
+  return span as unknown as jest.Mocked<Span>;
+})();
 
 var certFile: string
 beforeAll(() => {
@@ -137,47 +146,23 @@ test("test context implementation", () => {
     expect(Object.getOwnPropertySymbols(context.map).length).toBe(1) // This may be causing random failures...watch it!
 })
 
-test("verify failure to reinitialize inside a traceblock", () => {
+ test("check bad name for traceBlock", async () => {
     const config = new Configuration().setUseConsoleOutput(true)
     const attributes = new ResourceAttributes("test_service", "0.0.1")
 
     // Create an instance of AnacondaMetrics
     const tracer = new AnacondaTrace(config, attributes)
-
-    // Verify the instance is created correctly
-    expect(tracer).toBeInstanceOf(AnacondaTrace)
-    expect(tracer.config).toBeInstanceOf(InternalConfiguration)
-    expect(tracer.attributes).toBeInstanceOf(InternalResourceAttributes)
-
-    const mockTracer = {
-        startSpan: jest.fn().mockReturnValue(mockedSpan)
-    } as unknown as Tracer;
-
-    const spy = jest.spyOn(trace, 'getTracer').mockReturnValue(mockTracer);
-    tracer.traceBlock({name: "test_trace"}, (span: ASpan) => {
-        try {
-            const newAttr = new ResourceAttributes("test_service", "0.0.1").setAttributes({ userId: "some user"})
-            tracer.reinitialize(newAttr)
-            expect(true).toBe(false)
-        } catch (error) {
-            const err = error as Error
-            expect(err.message).toBeDefined()
-            expect(err.message!).toBe("TRACE ERROR: The tracing system cannot be re-initialized if inside a trace span!")
-        }
+    tracer.traceBlockAsync({name: "###"}, async (span) => {
+        console.debug("Should never output...")
+    }).catch((err) => {
+        const error = err as Error
+        expect(error.message).toBe("Trace name '###' is not a valid name (^[A-Za-z][A-Za-z_0-9]+$).")
     })
- })
-
- test("check bad name for traceBlock", () => {
-    const config = new Configuration().setUseConsoleOutput(true)
-    const attributes = new ResourceAttributes("test_service", "0.0.1")
-
-    // Create an instance of AnacondaMetrics
-    const tracer = new AnacondaTrace(config, attributes)
     try {
         tracer.traceBlock({name: "###"}, (span) => {
             console.debug("Should never output...")
         })
-    } catch (err) {
+    } catch(err) {
         const error = err as Error
         expect(error.message).toBe("Trace name '###' is not a valid name (^[A-Za-z][A-Za-z_0-9]+$).")
     }

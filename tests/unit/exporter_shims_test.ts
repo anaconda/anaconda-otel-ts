@@ -125,7 +125,7 @@ const mockReadableSpan: ReadableSpan = {
     ended: false
 };
 
-test("verify Metrics exporter shim class", () => {
+test("verify Metrics exporter shim class", async () => {
     s_ok = false
     ff_ok = false
     var mockExporter = new MockMetricExporter()
@@ -134,17 +134,16 @@ test("verify Metrics exporter shim class", () => {
 
     // Good path
     ut.export(metrics, (result: ExportResult) => { expect(result.code).toBe(ExportResultCode.SUCCESS) })
-    ut.forceFlush().then(() => {
-        expect(ff_ok).toBe(true)
-    })
-
-    ut.shutdown().then(() => {
-        expect(s_ok == true)
-    })
+    await ut.forceFlush()
+    expect(ff_ok).toBe(true)
+    expect(ut.isShutdown()).toBe(false)
+    await ut.shutdown()
+    expect(s_ok).toBe(true)
+    expect(ut.isShutdown()).toBe(true)
 
     // After shutdown...
-    ut.forceFlush().then(() => {})
-    ut.shutdown().then(() => {})
+    ut.forceFlush().then()
+    ut.shutdown().then()
 
     var metrics: ResourceMetrics = mockResourceMetrics
     ut.export(metrics, (result: ExportResult) => {
@@ -153,20 +152,25 @@ test("verify Metrics exporter shim class", () => {
 
     // make sure swap resets shutdown flag
     mockExporter = new MockMetricExporter()
-    ut.swapExporter(mockExporter)
+    var old = await ut.swapExporter(mockExporter)
+    await old.shutdown()
+    expect(ut.isShutdown()).toBe(false)
     ut.export(metrics, (result: ExportResult) => { expect(result.code).toBe(ExportResultCode.SUCCESS) })
 
     // Bad paths.
     mockExporter = new ErrorMetricExporter()
-    ut.swapExporter(mockExporter)
+    old = await ut.swapExporter(mockExporter)
+    await old.shutdown()
     ut.export(metrics, (result: ExportResult) => { expect(result.code).toBe(ExportResultCode.FAILED) })
 
     mockExporter = new ErrorMetricExporter(true)
-    ut.swapExporter(mockExporter)
+    old = await ut.swapExporter(mockExporter)
+    await old.shutdown()
     ut.export(metrics, (result: ExportResult) => { expect(result.code).toBe(ExportResultCode.FAILED) })
+    await ut.forceFlush()
 });
 
-test("verify Span exporter shim class", () => {
+test("verify Span exporter shim class", async () => {
     s_ok = false
     ff_ok = false
     var mockExporter = new MockSpanExporter()
@@ -175,35 +179,38 @@ test("verify Span exporter shim class", () => {
 
     // Good path
     ut.export([span], (result: ExportResult) => { expect(result.code).toBe(ExportResultCode.SUCCESS); })
-    ut.forceFlush?.().then(() => {
-        expect(ff_ok).toBe(true)
-    })
-
-    ut.shutdown().then(() => {
-        expect(s_ok == true)
-    })
-
+    await ut.forceFlush?.()
+    expect(ff_ok).toBe(true)
+    expect(ut.isShutdown()).toBe(false)
+    await ut.shutdown()
+    expect(s_ok).toBe(true)
+    expect(ut.isShutdown()).toBe(true)
     // After shutdown...
-    ut.forceFlush?.().then(() => {})
-    ut.shutdown().then(() => {})
-
-    var metrics: ResourceMetrics = mockResourceMetrics
+    ut.forceFlush?.()
+    ut.shutdown()
     ut.export([span], (result: ExportResult) => {
         expect(result.code).toBe(ExportResultCode.FAILED); // returns FAILED because of shutdown...
     });
-
-    // make sure swap resets shutdown flag
     mockExporter = new MockSpanExporter()
-    ut.swapExporter(mockExporter)
-    ut.export([span], (result: ExportResult) => { expect(result.code).toBe(ExportResultCode.SUCCESS) })
-
+    var old = await ut.swapExporter(mockExporter)
+    await old.shutdown()
+    // make sure swap resets shutdown flag
+    expect(ut.isShutdown()).toBe(false)
+    ut.export([span], (result: ExportResult) => {
+        expect(result.code).toBe(ExportResultCode.SUCCESS)
+    })
     // Bad paths.
     mockExporter = new ErrorSpanExporter()
-    ut.swapExporter(mockExporter)
-    ut.export([span], (result: ExportResult) => { expect(result.code).toBe(ExportResultCode.FAILED) })
-
+    old = await ut.swapExporter(mockExporter)
+    await old.shutdown()
+    ut.export([span], (result: ExportResult) => {
+        expect(result.code).toBe(ExportResultCode.FAILED)
+    })
     mockExporter = new ErrorSpanExporter(true)
-    ut.swapExporter(mockExporter)
-    ut.export([span], (result: ExportResult) => { expect(result.code).toBe(ExportResultCode.FAILED) })
-    ut.forceFlush?.().then() // Doesn't exist in the ErrorSpanExporter.
+    old = await ut.swapExporter(mockExporter)
+    await old.shutdown()
+    ut.export([span], (result: ExportResult) => {
+        expect(result.code).toBe(ExportResultCode.FAILED)
+    })
+    await ut.forceFlush?.() // Doesn't exist in the ErrorSpanExporter.
 });

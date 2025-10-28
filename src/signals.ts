@@ -17,12 +17,18 @@ import {
   __setTracing,
 } from './signals-state.js';
 
+
+/**
+ * Possible signals used in this API.
+ */
+export type Signal = 'metrics' | 'tracing';
+
 /**
  * Initializes telemetry signals such as metrics and traces based on the provided configuration.
  *
  * @param config - The telemetry configuration object.
  * @param attributes - Resource attributes to associate with telemetry data.
- * @param signalTypes - An array of signal types to initialize (e.g., "metrics", "traces"). Defaults to ["metrics"].
+ * @param signalTypes - An array of signal types to initialize (e.g., "metrics", "tracing"). Defaults to ["metrics"].
  *
  * @returns true is successful, otherwise false.
  *
@@ -33,7 +39,7 @@ import {
  */
 export function initializeTelemetry(config: Configuration,
                                     attributes: ResourceAttributes,
-                                    signalTypes: Array<string> = ["metrics"]): boolean {
+                                    signalTypes: Array<Signal> = ["metrics"]): boolean {
     console.debug(`${lts()} > *** initializeTelemetry called...`)
     if (__initialized) {
         console.debug(`${lts()} > *** already initialized, returning true.`)
@@ -48,9 +54,9 @@ export function initializeTelemetry(config: Configuration,
             case "tracing":
                 __setTracing(new AnacondaTrace(config, attributes))
                 break
-            default:
-                console.warn(`${lts()} > *** WARNING: Unknown signal type: ${signalType}`)
-                break
+            // default:
+            //     console.warn(`${lts()} > *** WARNING: Unknown signal type: ${signalType}`)
+            //     break
         }
     }
     if (!__metrics && !__tracing) {
@@ -68,6 +74,9 @@ export function initializeTelemetry(config: Configuration,
  * This function updates the internal telemetry resources only if telemetry
  * has already been initialized. If telemetry is not yet initialized, it will
  * return `false` and perform no changes.
+ *
+ * @deprecated Please use the new method, changeSignalConnection()! This will be removed after
+ *             2-3 releases and currently does nothing but return `false`.
  *
  * @param newAttributes - The new {@link ResourceAttributes} to apply to telemetry components.
  * @param newEndpoint - A possible default endpoint replacement.
@@ -89,12 +98,37 @@ export function initializeTelemetry(config: Configuration,
 export function reinitializeTelemetry(newAttributes: ResourceAttributes,
                                       newEndpoint: URL | undefined = undefined,
                                       newToken: string | undefined = undefined): boolean {
+    console.warn("DEPRECATED: The 'reinitializeTelemetry' function no longer does anything!")
+    return false
+}
+
+/**
+ * Function used to change the endpoint or authorization token or both for a signal type.
+ *
+ * @param signal - Either 'metrics' or 'tracing' to select which connection to change.
+ * @param endpoint - The optional new endpoint for the specific signal.
+ * @param authToken - The optional new authorization token for the connection to use.
+ * @param certFile - The optional certificate file for mTLS.
+ *
+ * @returns - true if successful, false if it failed.
+ *
+ * @remarks
+ *  - Should be called from an async method with await, if not consequences are:
+ *      * If changing endpoints data around the change MAY end up in either endpoint or both.
+ *      * Order of other telemetry may be different than expected.
+ *  - This method does not throw.
+ */
+export async function changeSignalConnection(signal: Signal, endpoint: URL | undefined,
+                                             authToken: string | undefined = undefined,
+                                             certFile: string | undefined = undefined): Promise<boolean> {
     if (!__initialized) {
         return false
     }
-    __metrics?.reinitialize(newAttributes, newEndpoint, newToken)
-    __tracing?.reinitialize(newAttributes, newEndpoint, newToken)
-    return true
+    if (signal === 'metrics') {
+        return await __metrics?.changeConnection(endpoint, authToken, certFile) ?? false
+    } else {
+        return await __tracing?.changeConnection(endpoint, authToken, certFile) ?? false
+    }
 }
 
 /**
@@ -197,7 +231,8 @@ export function decrementCounter(args: CounterArgs): boolean {
 }
 
 /**
- * Executes a block of code within a tracing context, optionally attaching attributes and a carrier.
+ * Executes a block of code (async) within a tracing context, optionally attaching
+ * attributes and a carrier.
  *
  * @param args - An argument list object where the `name` field is required.
  *
@@ -215,16 +250,65 @@ export function decrementCounter(args: CounterArgs): boolean {
  * - If tracing is not initialized, a warning is logged and the block is executed with a no-op span.
  * - ___IMPORTANT___: Calling `reinitializeTelemetry` from within a traceBlock will result in an
  *   exception (Error) being thrown!
+ * - This call should be awaited and the code block will be async.
  *
  * @example
  * ```typescript
- * traceBlock({name: "myTraceBlock", attributes: { key: "value" }}) { aspan =>
+ * await traceBlock({name: "myTraceBlock", attributes: { key: "value" }}) { aspan =>
  *     aspan.addAttributes({ additional: "attributes" });
- *     // do some code...
+ *     // do some async code here with awaits...
  *
  *     aspan.addEvent("eventName", { "attr": "value" });
  *
- *     // do some more code...
+ *     // do some more code with awaits...
+ *
+ *     aspan.addException(new Error("An error occurred"));
+ *     aspan.setErrorStatus("An error occurred");
+ *
+ *     // finish the code block
+ * })
+ * ```
+ */
+export async function traceBlockAsync(args: TraceArgs, block: (aspan: ASpan) => Promise<void>): Promise<void> {
+    if (!__tracing) {
+        console.warn("*** WARNING: Tracing not initialized. Call initializeTelemetry with 'tracing' signal type first.");
+        await block(__noopASpan); // Call the block with undefined to maintain API consistency
+        return
+    }
+    return await __tracing.traceBlockAsync(args, block); // Call the traceBlock method on the AnacondaTrace instance
+}
+
+/**
+ * Executes a block of code (async) within a tracing context, optionally attaching
+ * attributes and a carrier.
+ *
+ * @param args - An argument list object where the `name` field is required.
+ *
+ * The args is an object defined by (in any order):
+ *
+ * ```
+ * {
+ *   name: string = "";  Required; Not supplying a name will result in no value being recorded.
+ *   attributes?: AttrMap = {}; Optional; Attributes for the counter metric.
+ *   carrier?: CarrierMap = {}; Optional; Used to create a context for the trace block.
+ * }
+ * ```
+ *
+ * @remarks
+ * - If tracing is not initialized, a warning is logged and the block is executed with a no-op span.
+ * - ___IMPORTANT___: Calling `reinitializeTelemetry` from within a traceBlock will result in an
+ *   exception (Error) being thrown!
+ * - This call should be awaited and the code block will be async.
+ *
+ * @example
+ * ```typescript
+ * await traceBlock({name: "myTraceBlock", attributes: { key: "value" }}) { aspan =>
+ *     aspan.addAttributes({ additional: "attributes" });
+ *     // do some async code here with awaits...
+ *
+ *     aspan.addEvent("eventName", { "attr": "value" });
+ *
+ *     // do some more code with awaits...
  *
  *     aspan.addException(new Error("An error occurred"));
  *     aspan.setErrorStatus("An error occurred");
@@ -241,18 +325,3 @@ export function traceBlock(args: TraceArgs, block: (aspan: ASpan) => void): void
     }
     return __tracing.traceBlock(args, block); // Call the traceBlock method on the AnacondaTrace instance
 }
-
-// For testing purposes, not in index.ts.
-// export {
-//     __initialized,
-//     __metrics,
-//     __tracing,
-//     __noopASpan
-// }
-
-// For testing purposes, not in index.ts.
-// export function __resetSignals(): void {
-//     __initialized = false;
-//     __metrics = undefined;
-//     __tracing = undefined;
-// }

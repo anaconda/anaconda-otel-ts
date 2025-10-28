@@ -20,19 +20,51 @@ import { type Meter } from '@opentelemetry/api'
 import { type Resource } from "@opentelemetry/resources"
 
 const mockedMetrics = otelmetrics as jest.Mocked<typeof otelmetrics>
-const mockedMeter: jest.Mocked<Meter> = {
-  createUpDownCounter: jest.fn().mockReturnValue({ add: jest.fn() }),
-  createCounter: jest.fn().mockReturnValue({ add: jest.fn() }),
-  createHistogram: jest.fn().mockReturnValue({ record: jest.fn() }),
+import type {
+  Counter,
+  UpDownCounter,
+  Histogram,
+  ObservableGauge,
+  ObservableCounter,
+  ObservableUpDownCounter,
+} from '@opentelemetry/api';
 
-  // Required to satisfy full Meter interface — stub as needed
-  createObservableGauge: jest.fn(),
-  createObservableCounter: jest.fn(),
-  createObservableUpDownCounter: jest.fn(),
-  createGauge: jest.fn(),
-  removeBatchObservableCallback: jest.fn(),
-  addBatchObservableCallback: jest.fn(),
-}
+// Small helpers so return types match exactly
+const makeCounter = () => ({ add: jest.fn() }) as unknown as jest.Mocked<Counter>;
+const makeUpDownCounter = () => ({ add: jest.fn() }) as unknown as jest.Mocked<UpDownCounter>;
+const makeHistogram = () => ({ record: jest.fn() }) as unknown as jest.Mocked<Histogram>;
+
+const makeObsGauge = () =>
+  ({ addCallback: jest.fn(), removeCallback: jest.fn() }) as unknown as jest.Mocked<ObservableGauge>;
+const makeObsCounter = () =>
+  ({ addCallback: jest.fn(), removeCallback: jest.fn() }) as unknown as jest.Mocked<ObservableCounter>;
+const makeObsUpDownCounter = () =>
+  ({ addCallback: jest.fn(), removeCallback: jest.fn() }) as unknown as jest.Mocked<ObservableUpDownCounter>;
+
+/** A stable, type-safe mocked Meter */
+export const mockedMeter: jest.Mocked<Meter> = (() => {
+  const m: any = {};
+
+  // Synchronous instrument factories
+  m.createCounter = jest.fn(() => makeCounter());
+  m.createUpDownCounter = jest.fn(() => makeUpDownCounter());
+  m.createHistogram = jest.fn(() => makeHistogram());
+
+  // Observable instrument factories
+  m.createObservableGauge = jest.fn(() => makeObsGauge());
+  m.createObservableCounter = jest.fn(() => makeObsCounter());
+  m.createObservableUpDownCounter = jest.fn(() => makeObsUpDownCounter());
+
+  // Batch callbacks
+  m.addBatchObservableCallback = jest.fn();
+  m.removeBatchObservableCallback = jest.fn();
+
+  // If your code calls a legacy/non-standard API (e.g., createGauge),
+  // attach it AFTER casting so it doesn't fight the Meter type:
+  // m.createGauge = jest.fn(() => ({ record: jest.fn() }));
+
+  return m as jest.Mocked<Meter>;
+})();
 
 var certFile: string
 var metrics: AnacondaMetrics
@@ -125,7 +157,7 @@ function createMockResource(): jest.Mocked<Resource> {
   return {
     asyncAttributesPending: undefined,
     attributes: createMockAttributes(),
-    waitForAsyncAttributes: jest.fn(),
+    waitForAsyncAttributes: (jest.fn() as () => Promise<void>),
     merge: jest.fn(),
     getRawAttributes: jest.fn()
   };

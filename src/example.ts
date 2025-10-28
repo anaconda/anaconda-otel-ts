@@ -11,38 +11,59 @@ import {
     recordHistogram,
     ResourceAttributes,
     traceBlock,
+    traceBlockAsync,
     type ASpan
 } from "./index.js"
+import { changeSignalConnection } from "./signals.js"
 
-function sleep(to: number) {
-    setTimeout(() => { }, to)
+async function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function main() {
+async function main() {
     const config = new Configuration(new URL("devnull:")) // NOTE: devnull is a No-Op exporter.
         .setMetricExportIntervalMs(100)
-        .setTraceEndpoint(new URL("console:"))
-        .setMetricsEndpoint(new URL("console:"))
+        .setTraceEndpoint(new URL("http://localhost:6318/v1/traces"))
+        .setMetricsEndpoint(new URL("http://localhost:6318/v1/metrics"))
     const res = new ResourceAttributes("test_aotel", "1.2.3").setAttributes({foo: "test"})
 
     initializeTelemetry(config, res, ["metrics", "tracing"])
-    console.log("=== Running...")
-    traceBlock({name: "topLevel", attributes: {"someKey": "someValue"}}, (span: ASpan) => {
+    console.log("=== Running...EP #1")
+    await traceBlockAsync({name: "topLevel", attributes: {"someKey": "someValue"}}, async (span: ASpan) => {
         recordHistogram({name: "myValue", value: 42})
         incrementCounter({name: "feature1"})
-        sleep(150)
+        await sleep(150)
 
         span.addEvent("Event1")
 
         incrementCounter({name: "feature1"})
         incrementCounter({name: "feature2"})
-        sleep(150)
+        await sleep(150)
         span.addEvent("Event2")
 
         decrementCounter({name: "feature1", by: 2})
     })
-    sleep(2000)
+    await sleep(2500)
+    console.log("=== Switching to EP #2.")
+    await changeSignalConnection("metrics", new URL("http://localhost:5318/v1/metrics"))
+    await changeSignalConnection("tracing", new URL("http://localhost:5318/v1/traces"))
+    console.log("=== Running...EP #2")
+    await traceBlockAsync({name: "newTopLevel", attributes: {"someNewKey": "someNewValue"}}, async (span: ASpan) => {
+        recordHistogram({name: "myValue2", value: 42})
+        incrementCounter({name: "new_feature1"})
+        await sleep(150)
+
+        span.addEvent("newEvent1")
+
+        incrementCounter({name: "new_feature1"})
+        incrementCounter({name: "new_feature2"})
+        await sleep(150)
+        span.addEvent("newEvent2")
+
+        decrementCounter({name: "new_feature1", by: 2})
+    })
+    await sleep(1000)
     console.log("=== Done.")
 }
 
-main()
+await main()
