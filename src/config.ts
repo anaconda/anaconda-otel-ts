@@ -98,22 +98,8 @@ export class Configuration {
      * @returns The current instance for method chaining.
      */
     public setMetricsEndpoint(endpoint: URL, authToken?: string, certFile?: string): this {
-        this._impl.metricsEndpoints.length = 0 // Clear list before adding a new endpoint
-        return this.addMetricsEndpoint(endpoint, authToken, certFile)
-    }
-
-    // /**
-    //  * Adds a metrics endpoint to the configuration.
-    //  *
-    //  * @param endpoint - The URL of the metrics endpoint.
-    //  * @param authToken - Optional authentication token for the endpoint.
-    //  * @param certFile - Optional path to a certificate file for secure connections.
-    //  * @returns The current instance for method chaining.
-    //  */
-    private addMetricsEndpoint(endpoint: URL, authToken?: string, certFile?: string): this {
-        var tuple: EndpointTuple = [endpoint, authToken, certFile]
-        this._impl.metricsEndpoints.push(tuple)
-        return this;
+        this._impl.metricsEndpoint = [endpoint, authToken, certFile]
+        return this
     }
 
     /**
@@ -125,22 +111,8 @@ export class Configuration {
      * @returns The current instance for method chaining.
      */
     public setTraceEndpoint(endpoint: URL, authToken?: string, certFile?: string): this {
-        this._impl.traceEndpoints.length = 0 // Clear list before adding a new endpoint
-        return this.addTraceEndpoint(endpoint, authToken, certFile)
-    }
-
-    // /**
-    //  * Adds a trace endpoint to the configuration.
-    //  *
-    //  * @param endpoint - The URL of the trace endpoint.
-    //  * @param authToken - Optional authentication token for the endpoint.
-    //  * @param certFile - Optional path to a certificate file for secure connections.
-    //  * @returns The current instance for method chaining.
-    //  */
-    private addTraceEndpoint(endpoint: URL, authToken?: string, certFile?: string): this {
-        var tuple: EndpointTuple = [endpoint, authToken, certFile]
-        this._impl.traceEndpoints.push(tuple)
-        return this;
+        this._impl.traceEndpoint = [endpoint, authToken, certFile]
+        return this
     }
 
     /**
@@ -263,8 +235,8 @@ export class InternalConfiguration {
     public static readonly defaultUrl: URL = new URL("grpc://localhost:4317")
 
     public defaultEndpoint: EndpointTuple = [InternalConfiguration.defaultUrl, undefined, undefined]
-    public metricsEndpoints: EndpointTuple[] = []
-    public traceEndpoints: EndpointTuple[] = []
+    public metricsEndpoint: EndpointTuple | undefined  = undefined
+    public traceEndpoint: EndpointTuple | undefined = undefined
     public useConsole: boolean = false
     public metricsExportIntervalMs: number = 60000 // Default to 60 seconds
     public skipInternetCheck: boolean = false
@@ -292,15 +264,45 @@ export class InternalConfiguration {
         return this.useConsole
     }
 
-    public forEachMetricsEndpoints(callback: (endpoint: URL, authToken?: string, certFile?: string) => void) {
-        for (let tuple of this.getMetricsEndpointTupleList()) {
-            callback(tuple[0], tuple[1], tuple[2])
+    public getMetricsEndpointTuple(): EndpointTuple {
+        if (this.getUseConsole()) {
+            return InternalConfiguration.consoleTuple
+        } else if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_METRICS_ENDPOINT)) {
+            var def: EndpointTuple = this.getDefaultEndpointTuple()
+            var endpoint: EndpointTuple = [def[0], def[1], def[2]]
+            endpoint[0] = new URL(process.env.ATEL_METRICS_ENDPOINT as string)
+            if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_METRICS_AUTH_TOKEN)) {
+                endpoint[1] = process.env.ATEL_METRICS_AUTH_TOKEN
+            }
+            if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_METRICS_TLS_PRIVATE_CA_CERT_FILE)) {
+                endpoint[2] = process.env.ATEL_METRICS_TLS_PRIVATE_CA_CERT_FILE
+            }
+            return endpoint
+        } else if (this.metricsEndpoint === undefined) {
+            return this.getDefaultEndpointTuple()
+        } else {
+            return this.metricsEndpoint!
         }
     }
 
-    public forEachTraceEndpoints(callback: (endpoint: URL, authToken?: string, certFile?: string) => void) {
-        for (let tuple of this.getTraceEndpointTupleList()) {
-            callback(tuple[0],tuple[1], tuple[2])
+    public getTraceEndpointTuple(): EndpointTuple {
+        if (this.getUseConsole()) {
+            return InternalConfiguration.consoleTuple
+        } else if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_TRACE_ENDPOINT)) {
+            var def: EndpointTuple = this.getDefaultEndpointTuple()
+            var endpoint: EndpointTuple = [def[0], def[1], def[2]]
+            endpoint[0] = new URL(process.env.ATEL_TRACE_ENDPOINT as string)
+            if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_TRACE_AUTH_TOKEN)) {
+                endpoint[1] = process.env.ATEL_TRACE_AUTH_TOKEN
+            }
+            if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_TRACE_TLS_PRIVATE_CA_CERT_FILE)) {
+                endpoint[2] = process.env.ATEL_TRACE_TLS_PRIVATE_CA_CERT_FILE
+            }
+            return endpoint
+        } else if (this.traceEndpoint === undefined) {
+            return this.getDefaultEndpointTuple()
+        } else {
+            return this.traceEndpoint
         }
     }
 
@@ -335,48 +337,6 @@ export class InternalConfiguration {
             return InternalConfiguration.consoleTuple
         }
         return this.defaultEndpoint
-    }
-
-    public getMetricsEndpointTupleList(): EndpointTuple[] {
-        if (this.getUseConsole()) {
-            return [InternalConfiguration.consoleTuple]
-        } else if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_METRICS_ENDPOINT)) {
-            var def: EndpointTuple = this.getDefaultEndpointTuple()
-            var endpoint: EndpointTuple = [def[0], def[1], def[2]]
-            endpoint[0] = new URL(process.env.ATEL_METRICS_ENDPOINT as string)
-            if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_METRICS_AUTH_TOKEN)) {
-                endpoint[1] = process.env.ATEL_METRICS_AUTH_TOKEN
-            }
-            if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_METRICS_TLS_PRIVATE_CA_CERT_FILE)) {
-                endpoint[2] = process.env.ATEL_METRICS_TLS_PRIVATE_CA_CERT_FILE
-            }
-            return [endpoint]
-        } else if (this.metricsEndpoints.length === 0) {
-            return [this.getDefaultEndpointTuple()]
-        } else {
-            return this.metricsEndpoints
-        }
-    }
-
-    public getTraceEndpointTupleList(): EndpointTuple[] {
-        if (this.getUseConsole()) {
-            return [InternalConfiguration.consoleTuple]
-        } else if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_TRACE_ENDPOINT)) {
-            var def: EndpointTuple = this.getDefaultEndpointTuple()
-            var endpoint: EndpointTuple = [def[0], def[1], def[2]]
-            endpoint[0] = new URL(process.env.ATEL_TRACE_ENDPOINT as string)
-            if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_TRACE_AUTH_TOKEN)) {
-                endpoint[1] = process.env.ATEL_TRACE_AUTH_TOKEN
-            }
-            if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_TRACE_TLS_PRIVATE_CA_CERT_FILE)) {
-                endpoint[2] = process.env.ATEL_TRACE_TLS_PRIVATE_CA_CERT_FILE
-            }
-            return [endpoint]
-        } else if (this.traceEndpoints.length === 0) {
-            return [this.getDefaultEndpointTuple()]
-        } else {
-            return this.traceEndpoints
-        }
     }
 
     public getEntropy(): string {

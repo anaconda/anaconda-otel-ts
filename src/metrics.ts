@@ -158,11 +158,6 @@ export class AnacondaMetrics extends AnacondaCommon {
                     sdkMetricsNS.AggregationTemporality.DELTA
             });
             this.setExporter(exporter)
-            const reader = new PeriodicExportingMetricReader({
-                exporter: this.parentExporter!,
-                exportIntervalMillis: this.metricsExportIntervalMs
-            });
-            return reader
         } else if (scheme === 'http:' || scheme === 'https:') {
             this.debug(`Creating HTTP reader for endpoint '${url.href}'...`)
             const exporter = new OTLPMetricExporterHTTP({
@@ -173,23 +168,23 @@ export class AnacondaMetrics extends AnacondaCommon {
                     sdkMetricsNS.AggregationTemporality.DELTA
             });
             this.setExporter(exporter)
-            const reader = new PeriodicExportingMetricReader({
-                exporter: this.parentExporter!,
-                exportIntervalMillis: this.metricsExportIntervalMs
-            });
-            return reader
         } else if (scheme === 'console:') {
             this.debug(`Creating Console reader for endpoint '${url.href}'...`)
             const exporter = new ConsoleMetricExporter()
             this.setExporter(exporter)
-            const reader = new PeriodicExportingMetricReader({
-                exporter: this.parentExporter!,
-                exportIntervalMillis: this.metricsExportIntervalMs
-            });
-            return reader
+        } else if (scheme === 'devnull:') {
+            this.debug(`Creating DevNull reader for endpoint '${url.href}'...`)
+            const exporter = new NoopMetricExporter()
+            this.setExporter(exporter)
+        } else {
+            this.warn(`Received bad scheme for metrics: ${scheme}!`)
+            return undefined // Unknown
         }
-        this.warn(`Received bad scheme for metrics: ${scheme}!`)
-        return undefined // Unknown
+        const reader = new PeriodicExportingMetricReader({
+            exporter: this.parentExporter!,
+            exportIntervalMillis: this.metricsExportIntervalMs
+        });
+        return reader
     }
 
     private readCredentials(scheme: string, certFile?: string): ChannelCredentials | undefined {
@@ -217,20 +212,19 @@ export class AnacondaMetrics extends AnacondaCommon {
         if (this.config.useDebug) {
             diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.DEBUG);
         }
-        this.forEachMetricsEndpoints((endpoint, authToken, certFile) => {
-            const scheme = endpoint.protocol
-            const ep = new URL(endpoint.href)
-            this.debug(`Connecting to metrics endpoint '${ep.href}'.`)
-            ep.protocol = ep.protocol.replace("grpcs:", "https:")
-            ep.protocol = ep.protocol.replace("grpc:", "http:")
-            var creds: ChannelCredentials | undefined = this.readCredentials(scheme, certFile)
-            var headers: Record<string,string> = authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
-            if (scheme.startsWith('http')) {
-                headers['Content-Type'] = 'application/x-protobuf'
-            }
-            const reader: PeriodicExportingMetricReader | undefined = this.makeReader(scheme, ep, headers, creds)
-            if (reader) { this.readers.push(reader!) }
-        })
+        var [endpoint, authToken, certFile] = this.config.getMetricsEndpointTuple()
+        const scheme = endpoint.protocol
+        const ep = new URL(endpoint.href)
+        this.debug(`Connecting to metrics endpoint '${ep.href}'.`)
+        ep.protocol = ep.protocol.replace("grpcs:", "https:")
+        ep.protocol = ep.protocol.replace("grpc:", "http:")
+        var creds: ChannelCredentials | undefined = this.readCredentials(scheme, certFile)
+        var headers: Record<string,string> = authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
+        if (scheme.startsWith('http')) {
+            headers['Content-Type'] = 'application/x-protobuf'
+        }
+        const reader: PeriodicExportingMetricReader | undefined = this.makeReader(scheme, ep, headers, creds)
+        if (reader) { this.readers.push(reader!) }
         this.meterProvider = new MeterProvider({ readers: this.readers, resource: this.resources })
         this.meter = this.meterProvider.getMeter(this.serviceName, this.serviceVersion)
         if (this.config.getUseDebug()) {

@@ -42,18 +42,16 @@ class TestImpl extends AnacondaCommon {
     public readCertFileTest(certFile: string): string | undefined {
         return this.readCertFile(certFile)
     }
-    public forEachMetricsEndpointsTest(callback: (endpoint: URL, authToken: string | undefined, certFile: string | undefined) => void): void {
-        super.forEachMetricsEndpoints(callback)
-    }
-    public forEachTraceEndpointsTest(callback: (endpoint: URL, authToken: string | undefined, certFile: string | undefined) => void): void {
-        super.forEachTraceEndpoints(callback)
-    }
 
     public testDebug(line: string) {
         var saved = console.debug
         console.debug = jest.fn()
         this.debug(line)
         console.debug = saved
+    }
+
+    public testMakeNewResources(newAttributes: ResourceAttributes): void {
+        this.makeNewResource(newAttributes)
     }
 }
 
@@ -69,14 +67,19 @@ afterAll(() => {
 })
 
 test("Verify AnacondaCommon Constructor", () => {
-    const config = new Configuration()
-    const attributes = new ResourceAttributes("test_service", "0.0.0")
-    const common = new TestImpl(config, attributes)
+    var config = new Configuration()
+    var attributes = new ResourceAttributes("test_service", "0.0.0")
+    var common = new TestImpl(config, attributes)
 
     expect(common).toBeDefined()
     expect(common.getConfig()).toBeInstanceOf(InternalConfiguration)
     expect(common.getAttributes()).toBeInstanceOf(InternalResourceAttributes)
     expect(common.getResources()).toBeDefined()
+
+    process.env['ATEL_TRACING_SESSION_ENTROPY'] = "entropy"
+    config = new Configuration()
+    common = new TestImpl(config, attributes)
+    common.testMakeNewResources(attributes)
 })
 
 test("Verify AnacondaCommon Getters", () => {
@@ -104,44 +107,6 @@ test("Verify AnacondaCommon readCertFile", async () => {
     // Verify error handling
     const certContentError = common.readCertFileTest("non_existent_cert_file.pem")
     expect(certContentError).toBeUndefined()
-})
-
-test("Verify AnacondaCommon forEachMetricsEndpoints", () => {
-    const config = new Configuration()
-    const attributes = new ResourceAttributes("test_service", "0.0.0")
-    const common = new TestImpl(config, attributes)
-
-    const mockCallback = jest.fn()
-    common.forEachMetricsEndpointsTest(mockCallback)
-
-    expect(mockCallback).toHaveBeenCalledTimes(1) // No endpoints set, should not call the callback
-    expect(mockCallback).toHaveBeenCalledWith(new URL("grpc://localhost:4317"), undefined, undefined)
-
-    // Set a metrics endpoint and verify the callback is called
-    config.setMetricsEndpoint(new URL("http://localhost:4317"), "authToken", "certFile.pem")
-    common.forEachMetricsEndpointsTest(mockCallback)
-
-    expect(mockCallback).toHaveBeenCalledTimes(2)
-    expect(mockCallback).toHaveBeenCalledWith(new URL("http://localhost:4317"), "authToken", "certFile.pem")
-})
-
-test("Verify AnacondaCommon forEachTraceEndpoints", () => {
-    const config = new Configuration()
-    const attributes = new ResourceAttributes("test_service", "0.0.0")
-    const common = new TestImpl(config, attributes)
-
-    const mockCallback = jest.fn()
-    common.forEachTraceEndpointsTest(mockCallback)
-
-    expect(mockCallback).toHaveBeenCalledTimes(1) // No endpoints set, should not call the callback
-    expect(mockCallback).toHaveBeenCalledWith(new URL("grpc://localhost:4317"), undefined, undefined) // Default endpoint
-
-    // Set a trace endpoint and verify the callback is called
-    config.setTraceEndpoint(new URL("http://localhost:4318"), "authToken", "certFile.pem")
-    common.forEachTraceEndpointsTest(mockCallback)
-
-    expect(mockCallback).toHaveBeenCalledTimes(2)
-    expect(mockCallback).toHaveBeenCalledWith(new URL("http://localhost:4318"), "authToken", "certFile.pem")
 })
 
 test("verify turn on debug mode", () => {

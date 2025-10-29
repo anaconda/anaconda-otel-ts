@@ -75,18 +75,6 @@ export class AnacondaCommon {
         return undefined
     }
 
-    protected forEachMetricsEndpoints(callback: (endpoint: URL, authToken?: string, certFile?: string) => void): void {
-        this.config.forEachMetricsEndpoints((endpoint, authToken, certFile) => {
-            callback(endpoint, authToken, certFile)
-        })
-    }
-
-    protected forEachTraceEndpoints(callback: (endpoint: URL, authToken?: string, certFile?: string) => void): void {
-        this.config.forEachTraceEndpoints((endpoint, authToken, certFile) => {
-            callback(endpoint, authToken, certFile)
-        })
-    }
-
     protected debug(line: string) {
         if (this.config.getUseDebug()) {
             console.debug(`${localTimeString()} > *** ATEL DEBUG: ${line}`)
