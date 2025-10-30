@@ -4,7 +4,7 @@
 import * as fs from 'fs';
 
 import { type AttrMap, type CarrierMap } from './types.js'
-import { Configuration } from './config.js'
+import { Configuration, type EndpointTuple } from './config.js'
 import { ResourceAttributes } from './attributes.js'
 import { AnacondaCommon } from "./common.js"
 import { __noopASpan } from './signals-state.js'
@@ -120,28 +120,37 @@ export class ASpanImpl implements ASpan {
 
 export class AnacondaTrace extends AnacondaCommon {
     provider: NodeTracerProvider | null = null
-    private processors: BatchSpanProcessor[] = []
+    private processor: BatchSpanProcessor | undefined
     private depth: number = 0
-    private parentExporter:SpanExporterShim | undefined
+    parentExporter:SpanExporterShim | undefined
 
     constructor(config: Configuration, attributes: ResourceAttributes) {
         super(config, attributes)
         this.setup()
     }
 
-    reinitialize(newAttributes: ResourceAttributes,
-                 newEndpoint: URL | undefined = undefined,
-                 newToken: string | undefined = undefined
-    ): void {
-        if (this.depth > 0) {
-            throw new Error("TRACE ERROR: The tracing system cannot be re-initialized if inside a trace span!")
+    async changeConnection(endpoint: URL | undefined, authToken: string | undefined, certFile: string | undefined): Promise<boolean> {
+        let [url, token, cert] = this.config.getTraceEndpointTuple()
+        if (endpoint !== url && endpoint !== undefined) {
+            this.config.traceEndpoint![0] = endpoint
         }
-        this.tearDown()
-        this.makeNewResource(newAttributes)
-        if(newEndpoint) {
-            this.config.defaultEndpoint = [newEndpoint!, newToken, undefined]
+        if (authToken !== token) {
+            this.config.traceEndpoint![1] = authToken
         }
-        this.setup()
+        if (certFile !== cert) {
+            this.config.traceEndpoint![2] = certFile
+        }
+        var [scheme, ep] = this.transformURL(this.config.traceEndpoint![0])
+        var creds: ChannelCredentials | undefined = this.readCredentials(scheme, this.config.traceEndpoint![2])
+        var headers = this.makeHeaders(scheme, authToken)
+        var exporter = this.makeExporter(scheme, ep, headers, creds)
+        if (exporter === undefined) {
+            return false
+        }
+        await this.processor?.forceFlush()
+        var oldExporter = await this.parentExporter?.swapExporter(exporter!)
+        await oldExporter?.shutdown()
+        return true
     }
 
     traceBlock(args: TraceArgs, block: (span: ASpan) => void): void {
@@ -161,42 +170,56 @@ export class AnacondaTrace extends AnacondaCommon {
         this.provider!.forceFlush()
     }
 
-    private setExporter(newExporter: SpanExporter): SpanExporter | undefined {
-        if (this.parentExporter == undefined) {
-            this.parentExporter = new SpanExporterShim(newExporter)
-            return undefined
-        } else {
-            return this.parentExporter.swapExporter(newExporter)
+    async traceBlockAsync(args: TraceArgs, block: (span: ASpan) => Promise<void>): Promise<void> {
+        if (!this.isValidName(args.name)) {
+            throw Error(`Trace name '${args.name}' is not a valid name (^[A-Za-z][A-Za-z_0-9]+$).`)
         }
+        const tracer = trace.getTracer(this.serviceName, this.serviceVersion);
+        const context: Context = this.convertToContext(args.carrier!)
+        const span = tracer.startSpan(args.name, undefined, context)
+        this.depth++
+        for (let key of Object.keys(args.attributes ? args.attributes : {})) {
+            span.setAttribute(key, args.attributes![key])
+        }
+        block(new ASpanImpl(span))
+        span.end()
+        this.depth--
+        await this.provider!.forceFlush()
     }
 
-    makeBatchProcessor(scheme: string, url: URL, httpHeaders: Record<string,string>,
-                       creds?: ChannelCredentials): BatchSpanProcessor | undefined {
+    private makeExporter(scheme: string, url: URL, httpHeaders: Record<string,string>,
+                         creds?: ChannelCredentials): SpanExporter | undefined {
+        var exporter: SpanExporter | undefined = undefined
         var urlStr = url.href
         if (scheme === 'grpc:' || scheme === 'grpcs:') {
             urlStr = `${url.hostname}:${url.port}`
-            const exporter = new OTLPTraceExporterGRPC({
+            exporter = new OTLPTraceExporterGRPC({
                 url: urlStr,
                 headers: httpHeaders,
                  credentials: creds
             });
-            this.setExporter(exporter)
         } else if (scheme === 'http:' || scheme === 'https:') {
-            const exporter = new OTLPTraceExporterHTTP({
+            exporter = new OTLPTraceExporterHTTP({
                 url: urlStr,
                 headers: httpHeaders
             });
-            this.setExporter(exporter)
         } else if (scheme === 'console:') {
-            const exporter = new ConsoleSpanExporter()
-            this.setExporter(exporter)
+            exporter = new ConsoleSpanExporter()
         } else if (scheme === 'devnull:') {
-            const exporter = new NoopSpanExporter()
-            this.setExporter(exporter)
+            exporter = new NoopSpanExporter()
         } else {
             this.warn(`Received bad scheme for tracing: ${scheme}!`)
+        }
+        return exporter
+    }
+
+    makeBatchProcessor(scheme: string, url: URL, httpHeaders: Record<string,string>,
+                       creds?: ChannelCredentials): BatchSpanProcessor | undefined {
+        var exporter = this.makeExporter(scheme, url, httpHeaders, creds)
+        if (exporter === undefined) {
             return undefined
         }
+        this.parentExporter = new SpanExporterShim(exporter!)
         return new BatchSpanProcessor(this.parentExporter!)
     }
 
@@ -213,17 +236,6 @@ export class AnacondaTrace extends AnacondaCommon {
         return creds
     }
 
-    private tearDown(): void {
-        for (let processor of this.processors) {
-            processor.forceFlush()
-            processor.shutdown()
-        }
-        this.provider?.shutdown()
-        this.provider = null
-        this.processors = []
-        this.depth = 0
-    }
-
     private setup(): void {
         if (this.config.useDebug) {
             diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.DEBUG);
@@ -237,12 +249,16 @@ export class AnacondaTrace extends AnacondaCommon {
         var creds: ChannelCredentials | undefined = this.readCredentials(scheme, certFile)
         const headers: Record<string,string> = authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
         const processor: BatchSpanProcessor | undefined = this.makeBatchProcessor(scheme, ep, headers, creds)
-        if (processor) { this.processors.push(processor!) }
-        this.provider = new NodeTracerProvider({
-            spanProcessors: this.processors,
-            resource: this.resources
-        })
-        this.provider!.register()
+        if (processor) {
+            this.processor = processor
+            this.provider = new NodeTracerProvider({
+                spanProcessors: [this.processor],
+                resource: this.resources
+            })
+            this.provider!.register()
+        } else {
+
+        }
     }
 
     private convertToContext(carrier: CarrierMap): Context {

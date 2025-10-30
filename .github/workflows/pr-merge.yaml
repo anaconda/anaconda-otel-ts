@@ -1,9 +1,8 @@
 name: Deploy docs & coverage to GitHub Pages (on PR merge)
 
 on:
-  pull_request:
+  push:
     branches: [ main ]
-    types: [ closed ]  # fire when PRs into main are closed
 
 permissions:
   contents: read
@@ -17,12 +16,11 @@ concurrency:
 jobs:
   build:
     # run only if the PR was actually merged (not just closed)
-    if: ${{ github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
         with:
           node-version: 24
           cache: npm
@@ -46,7 +44,7 @@ jobs:
           cp -r coverage/lcov-report/* site/coverage/
           touch site/.nojekyll
 
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:
           path: site
 
@@ -59,4 +57,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
