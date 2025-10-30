@@ -1,9 +1,8 @@
 name: Deploy docs & coverage to GitHub Pages (on PR merge)
 
 on:
-  pull_request:
+  push:
     branches: [ main ]
-    types: [ closed ]  # fire when PRs into main are closed
 
 permissions:
   contents: read
