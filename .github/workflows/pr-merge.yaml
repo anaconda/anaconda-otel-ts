@@ -1,0 +1,60 @@
+name: Deploy docs & coverage to GitHub Pages (on PR merge)
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # run only if the PR was actually merged (not just closed)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # Setup for coverage run
+      - run: npm install
+
+      # --- Build your artifacts ---
+      # 1) TypeDoc -> ./docs (or configured out dir)
+      - run: npm run docs
+
+      # 2) Coverage HTML -> ./coverage/lcov-report
+      - run: npm run coverage
+
+      # --- Stage for Pages under a single root ---
+      - name: Stage Pages artifact
+        run: |
+          rm -rf site
+          mkdir -p site/docs site/coverage
+          cp -r docs/* site/docs/
+          cp -r coverage/lcov-report/* site/coverage/
+          touch site/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    if: ${{ needs.build.result == 'success' }}
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
