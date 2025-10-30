@@ -6,7 +6,8 @@
 This project wraps the Open Telemetry Typscript SDK to make it's usage simpler for developers.
 
 ## Getting Started and API Documentation
-The quickstart guide can be found [here](https://anaconda.github.io/anaconda-otel-ts/docs/documents/quickstart.html).
+The API documentation can be found [here](https://anaconda.github.io/anaconda-otel-ts/docs/index.html). This
+includes a quickstart guide accessed from the left list.
 
 See the [example.ts](./src/example.ts) file for an example of how simple it can be to do complex things like change
 the URLs or bearer authentication token for a endpoint collector.

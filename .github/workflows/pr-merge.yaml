@@ -1,9 +1,8 @@
 name: Deploy docs & coverage to GitHub Pages (on PR merge)
 
 on:
-  pull_request:
+  push:
     branches: [ main ]
-    types: [ closed ]  # fire when PRs into main are closed
 
 permissions:
   contents: read
@@ -17,7 +16,6 @@ concurrency:
 jobs:
   build:
     # run only if the PR was actually merged (not just closed)
-    if: ${{ github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
