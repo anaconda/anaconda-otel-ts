@@ -7,10 +7,11 @@ export { Configuration } from './config.js';
 export { ResourceAttributes } from './attributes.js';
 export {
     initializeTelemetry,
-    reinitializeTelemetry,
+    changeSignalConnection,
     recordHistogram,
     decrementCounter,
     incrementCounter,
-    traceBlock
+    traceBlock,
+    traceBlockAsync
 } from './signals.js';
 export type { ASpan } from './traces.js';

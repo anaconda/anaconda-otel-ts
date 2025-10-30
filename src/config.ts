@@ -3,7 +3,7 @@
 
 
 // Types for code readability...
-type EndpointTuple = [URL, string | undefined, string | undefined]
+export type EndpointTuple = [URL, string | undefined, string | undefined]
 
 // NOTE: Logging support is TBD right now. The implementation in OTEL is Experimental.
 

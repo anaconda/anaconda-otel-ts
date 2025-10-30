@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { type AttrMap } from './types.js';
-import { Configuration } from './config.js';
+import { Configuration, type EndpointTuple } from './config.js';
 import { ResourceAttributes } from './attributes.js';
 import { AnacondaCommon } from "./common.js";
 import { MetricExporterShim } from './exporter_shims.js';
@@ -63,7 +63,7 @@ export class HistogramArgs {
 }
 
 export class AnacondaMetrics extends AnacondaCommon {
-    private readers: PeriodicExportingMetricReader[] = [];
+    private reader: PeriodicExportingMetricReader | undefined;
     mapOfCounters: Record<string, [UpDownCounter | Counter, boolean]> = {};
     mapOfHistograms: Record<string, Histogram> = {};
     meterProvider: MeterProvider | undefined = undefined
@@ -75,16 +75,28 @@ export class AnacondaMetrics extends AnacondaCommon {
         this.setup()
     }
 
-    reinitialize(newAttributes: ResourceAttributes,
-                 newEndpoint: URL | undefined = undefined,
-                 newToken: string | undefined = undefined
-    ): void {
-        this.tearDown()
-        this.makeNewResource(newAttributes)
-        if(newEndpoint) {
-            this.config.defaultEndpoint = [newEndpoint!, newToken, undefined]
+    async changeConnection(endpoint: URL | undefined, authToken: string | undefined, certFile: string | undefined): Promise<boolean> {
+        let [url, token, cert] = this.config.getMetricsEndpointTuple()
+        if (endpoint !== url && endpoint !== undefined) {
+            this.config.metricsEndpoint![0] = endpoint
         }
-        this.setup()
+        if (authToken !== token) {
+            this.config.metricsEndpoint![1] = authToken
+        }
+        if (certFile !== cert) {
+            this.config.metricsEndpoint![2] = certFile
+        }
+        var [scheme, ep] = this.transformURL(this.config.metricsEndpoint![0])
+        var creds: ChannelCredentials | undefined = this.readCredentials(scheme, this.config.metricsEndpoint![2])
+        var headers = this.makeHeaders(scheme, authToken)
+        var exporter = this.makeExporter(scheme, ep, headers, creds)
+        if (exporter === undefined) {
+            return false
+        }
+        await this.reader?.forceFlush()
+        var oldExporter = await this.parentExporter?.swapExporter(exporter!)
+        await oldExporter?.shutdown()
+        return true
     }
 
     recordHistogram(args: HistogramArgs): boolean {
@@ -135,51 +147,44 @@ export class AnacondaMetrics extends AnacondaCommon {
         return true
     }
 
-    private setExporter(newExporter: PushMetricExporter): PushMetricExporter | undefined {
-        if (this.parentExporter == undefined) {
-            this.parentExporter = new MetricExporterShim(newExporter)
-            return undefined
-        } else {
-            return this.parentExporter.swapExporter(newExporter)
-        }
-    }
-
-    private makeReader(scheme: string, url: URL, httpHeaders: Record<string,string>, creds?: ChannelCredentials): PeriodicExportingMetricReader | undefined {
-        this.debug(`Creating Reader for endpoint type '${scheme}'.`)
+    private makeExporter(scheme: string, url: URL, httpHeaders: Record<string,string>,
+                         creds?: ChannelCredentials): PushMetricExporter | undefined {
         var urlStr = url.href
+        var exporter: PushMetricExporter | undefined = undefined
         if (scheme === 'grpc:' || scheme === 'grpcs:') {
-            this.debug(`Creating GRPC reader for endpoint '${url.href}'...`)
             urlStr = `${url.hostname}:${url.port}`
-            const exporter = new OTLPMetricExporterGRPC({
+            exporter = new OTLPMetricExporterGRPC({
                 url: urlStr,
                 credentials: creds,
                 temporalityPreference: this.config.getUseCumulativeMetrics() ?
                     sdkMetricsNS.AggregationTemporality.CUMULATIVE :
                     sdkMetricsNS.AggregationTemporality.DELTA
             });
-            this.setExporter(exporter)
         } else if (scheme === 'http:' || scheme === 'https:') {
-            this.debug(`Creating HTTP reader for endpoint '${url.href}'...`)
-            const exporter = new OTLPMetricExporterHTTP({
+            exporter = new OTLPMetricExporterHTTP({
                 url: urlStr,
                 headers: httpHeaders,
                 temporalityPreference: this.config.getUseCumulativeMetrics() ?
                     sdkMetricsNS.AggregationTemporality.CUMULATIVE :
                     sdkMetricsNS.AggregationTemporality.DELTA
             });
-            this.setExporter(exporter)
         } else if (scheme === 'console:') {
-            this.debug(`Creating Console reader for endpoint '${url.href}'...`)
-            const exporter = new ConsoleMetricExporter()
-            this.setExporter(exporter)
+            exporter = new ConsoleMetricExporter()
         } else if (scheme === 'devnull:') {
-            this.debug(`Creating DevNull reader for endpoint '${url.href}'...`)
-            const exporter = new NoopMetricExporter()
-            this.setExporter(exporter)
+            exporter = new NoopMetricExporter()
         } else {
             this.warn(`Received bad scheme for metrics: ${scheme}!`)
-            return undefined // Unknown
         }
+        return exporter
+    }
+
+    private makeReader(scheme: string, url: URL, httpHeaders: Record<string,string>, creds?: ChannelCredentials): PeriodicExportingMetricReader | undefined {
+        this.debug(`Creating Reader for endpoint type '${scheme}'.`)
+        var exporter = this.makeExporter(scheme, url, httpHeaders, creds)
+        if (exporter === undefined) {
+            return undefined
+        }
+        this.parentExporter = new MetricExporterShim(exporter!)
         const reader = new PeriodicExportingMetricReader({
             exporter: this.parentExporter!,
             exportIntervalMillis: this.metricsExportIntervalMs
@@ -200,41 +205,26 @@ export class AnacondaMetrics extends AnacondaCommon {
         return creds
     }
 
-    private tearDown(): void {
-        for (let reader of this.readers) {
-            reader.forceFlush()
-            reader.shutdown()
-        }
-        this.readers = []
-    }
-
     private setup(): void {
         if (this.config.useDebug) {
             diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.DEBUG);
         }
         var [endpoint, authToken, certFile] = this.config.getMetricsEndpointTuple()
-        const scheme = endpoint.protocol
-        const ep = new URL(endpoint.href)
-        this.debug(`Connecting to metrics endpoint '${ep.href}'.`)
-        ep.protocol = ep.protocol.replace("grpcs:", "https:")
-        ep.protocol = ep.protocol.replace("grpc:", "http:")
+        var [scheme, ep] = this.transformURL(endpoint)
         var creds: ChannelCredentials | undefined = this.readCredentials(scheme, certFile)
-        var headers: Record<string,string> = authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
-        if (scheme.startsWith('http')) {
-            headers['Content-Type'] = 'application/x-protobuf'
-        }
+        var headers = this.makeHeaders(scheme, authToken)
         const reader: PeriodicExportingMetricReader | undefined = this.makeReader(scheme, ep, headers, creds)
-        if (reader) { this.readers.push(reader!) }
-        this.meterProvider = new MeterProvider({ readers: this.readers, resource: this.resources })
-        this.meter = this.meterProvider.getMeter(this.serviceName, this.serviceVersion)
-        if (this.config.getUseDebug()) {
-            const c = this.meter.createCounter('heartbeat');
-            setInterval(() => c.add(1, { demo: 'debug' }), 2_000);
-        }
-        if (this.meter) {
-            this.debug("Meter created successfully.")
+        if (reader != undefined) {
+            this.reader = reader
+            this.meterProvider = new MeterProvider({ readers: [this.reader!], resource: this.resources })
+            this.meter = this.meterProvider.getMeter(this.serviceName, this.serviceVersion)
+            if (this.meter) {
+                this.debug("Meter created successfully.")
+            } else {
+                this.warn("Meter was not created!")
+            }
         } else {
-            this.warn("Meter not created!")
+            this.warn("Periodic Metric Reader was not created!")
         }
     }
 

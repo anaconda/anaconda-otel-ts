@@ -93,6 +93,22 @@ export class AnacondaCommon {
         const regex = /^[A-Za-z][A-Za-z_0-9]+$/;
         return regex.test(name);
     }
+
+    protected transformURL(url: URL): [string, URL] {
+        const scheme = url.protocol
+        const ep = new URL(url.href)
+        ep.protocol = ep.protocol.replace("grpcs:", "https:")
+        ep.protocol = ep.protocol.replace("grpc:", "http:")
+        return [scheme, ep]
+    }
+
+    protected makeHeaders(scheme: string, authToken: string | undefined): Record<string,string> {
+        var headers: Record<string,string> = authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
+        if (scheme.startsWith('http')) {
+            headers['Content-Type'] = 'application/x-protobuf'
+        }
+        return headers
+    }
 }
 
 export function localTimeString(): string {

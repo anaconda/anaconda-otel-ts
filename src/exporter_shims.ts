@@ -5,7 +5,7 @@ import { type ResourceMetrics, type PushMetricExporter } from '@opentelemetry/sd
 import { type ReadableSpan, type SpanExporter } from '@opentelemetry/sdk-trace-base'
 import { type ExportResult, ExportResultCode } from '@opentelemetry/core';
 
-import { Lock } from './lock_object'
+import { Lock } from './lock_object.js'
 
 
 export class MetricExporterShim implements PushMetricExporter {
@@ -18,44 +18,52 @@ export class MetricExporterShim implements PushMetricExporter {
     }
 
     // Fire-and-forget swap (returns old exporter immediately)
-    swapExporter(newExporter: PushMetricExporter): PushMetricExporter {
+    async swapExporter(newExporter: PushMetricExporter): Promise<PushMetricExporter> {
         const saved = this._internalExporter;
-        void this._lock.runExclusive(() => {
+        await this._lock.runExclusive(() => {
             this._internalExporter = newExporter;
             this._shutdown = false;
-        }).catch();
+        });
         return saved;
     }
 
     export(metrics: ResourceMetrics, resultCallback: (r: ExportResult) => void): void {
-        void this._lock.runExclusive(() => {
-            if (this._shutdown) {
-                resultCallback({ code: ExportResultCode.FAILED, error: new Error('exporter is shutdown') });
-            } else {
-                try {
-                    this._internalExporter.export(metrics, resultCallback);
-                } catch (err) {
-                    resultCallback({ code: ExportResultCode.FAILED, error: err as Error });
-                }
-            }
-        });
+        if (this._shutdown) {
+            resultCallback({ code: ExportResultCode.FAILED, error: new Error('exporter is shutdown') });
+        } else {
+            void this._lock.runExclusive(() => {
+                    try {
+                        this._internalExporter.export(metrics, resultCallback);
+                    } catch (err) {
+                        resultCallback({ code: ExportResultCode.FAILED, error: err as Error });
+                    }
+            });
+        }
     }
 
     async forceFlush(): Promise<void> {
-        await this._lock.runExclusive(() => {
-            if (!this._shutdown) {
-                return this._internalExporter.forceFlush();
-            }
-        });
+        if (!this._shutdown) {
+            return await this._lock.runExclusive(async () => {
+                await this._internalExporter.forceFlush();
+            });
+        } else {
+            return Promise.resolve()
+        }
     }
 
     async shutdown(): Promise<void> {
-        await this._lock.runExclusive(async () => {
-            if (!this._shutdown) {
+        if (!this._shutdown) {
+            return await this._lock.runExclusive(async () => {
                 await this._internalExporter.shutdown();
                 this._shutdown = true;
-            }
-        });
+            });
+        } else {
+            return Promise.resolve()
+        }
+    }
+
+    isShutdown(): boolean {
+        return this._shutdown
     }
 }
 
@@ -69,43 +77,51 @@ export class SpanExporterShim implements SpanExporter {
     }
 
     // Fire-and-forget swap (returns old exporter immediately)
-    swapExporter(newExporter: SpanExporter): SpanExporter {
+    async swapExporter(newExporter: SpanExporter): Promise<SpanExporter> {
         const saved = this._internalExporter;
-        void this._lock.runExclusive(() => {
+        await this._lock.runExclusive(() => {
             this._internalExporter = newExporter;
             this._shutdown = false;
-        }).catch();
+        });
         return saved;
     }
 
     export(spans: ReadableSpan[], resultCallback: (result: ExportResult) => void): void {
-        void this._lock.runExclusive(() => {
-            if (this._shutdown) {
-                resultCallback({ code: ExportResultCode.FAILED, error: new Error('exporter is shutdown') });
-            } else {
+        if (this._shutdown) {
+            resultCallback({ code: ExportResultCode.FAILED, error: new Error('exporter is shutdown') });
+        } else {
+            void this._lock.runExclusive(() => {
                 try {
                     this._internalExporter.export(spans, resultCallback);
                 } catch (err) {
                     resultCallback({ code: ExportResultCode.FAILED, error: err as Error });
                 }
-            }
-        });
+            });
+        }
     }
 
     async shutdown(): Promise<void> {
-        await this._lock.runExclusive(async () => {
-            if (!this._shutdown) {
+        if (!this._shutdown) {
+            return await this._lock.runExclusive(async () => {
                 await this._internalExporter.shutdown();
                 this._shutdown = true;
-            }
-        });
+            });
+        } else {
+            return Promise.resolve()
+        }
     }
 
     async forceFlush?(): Promise<void> {
-        await this._lock.runExclusive(() => {
-            if (!this._shutdown) {
-                return this._internalExporter.forceFlush?.();
-            }
-        });
+        if (!this._shutdown) {
+            return await this._lock.runExclusive(async () => {
+                await this._internalExporter.forceFlush?.();
+            });
+        } else {
+            return Promise.resolve()
+        }
+    }
+
+    isShutdown(): boolean {
+        return this._shutdown
     }
 }
