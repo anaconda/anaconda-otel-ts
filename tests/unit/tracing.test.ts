@@ -8,6 +8,7 @@ import { jest, expect, beforeEach, beforeAll, afterAll, afterEach } from '@jest/
 import { Configuration, InternalConfiguration } from '../../src/config'
 import { InternalResourceAttributes, ResourceAttributes } from '../../src/attributes'
 import { AnacondaTrace, ASpanImpl, LocalContext, NoopSpanExporter, type ASpan, TraceArgs } from '../../src/traces'
+import { AnacondaCommon } from '../../src/common';
 
 jest.mock('@opentelemetry/sdk-metrics')
 jest.mock('@opentelemetry/exporter-trace-otlp-grpc')
@@ -15,6 +16,51 @@ jest.mock('@opentelemetry/exporter-trace-otlp-http')
 jest.mock('@opentelemetry/api')
 
 import { type Span, trace, type Tracer } from '@opentelemetry/api'
+
+class TestImpl extends AnacondaCommon {
+    public constructor(config: Configuration, attributes: ResourceAttributes) {
+        super(config, attributes)
+    }
+
+    public getConfig(): InternalConfiguration {
+        return this.config
+    }
+    public getAttributes(): InternalResourceAttributes {
+        return this.attributes;
+    }
+    public getResources(): Resource {
+        return this.resources
+    }
+    public get serviceNameTest(): string {
+        return this.serviceName
+    }
+    public get serviceVersionTest(): string {
+        return this.serviceVersion
+    }
+    public get useConsoleTest(): boolean {
+        return this.useConsole
+    }
+    public get metricsExportIntervalMsTest(): number {
+        return this.metricsExportIntervalMs
+    }
+    public get skipInternetCheckTest(): boolean {
+        return this.skipInternetCheck
+    }
+    public readCertFileTest(certFile: string): string | undefined {
+        return this.readCertFile(certFile)
+    }
+
+    public testDebug(line: string) {
+        var saved = console.debug
+        console.debug = jest.fn()
+        this.debug(line)
+        console.debug = saved
+    }
+
+    public testMakeNewResources(newAttributes: ResourceAttributes): void {
+        this.makeNewResource(newAttributes)
+    }
+}
 
 export const mockedSpan = (() => {
   const span: any = {};
@@ -76,8 +122,11 @@ test("verify AnacondaTrace class instantiation", () => {
  })
 
  test("verify ASPan methods", () => {
+    const config = new Configuration().setUseConsoleOutput(true)
+    const attributes = new ResourceAttributes("test_service", "0.0.1")
+    const impl = new TestImpl(config, attributes)
     for (let attr of [undefined, new ResourceAttributes("test_name", "0.0.0")]) {
-        var ut = new ASpanImpl(mockedSpan)
+        var ut = new ASpanImpl(mockedSpan, impl)
         ut.addAttributes({})
         ut.addEvent("test_event", {})
         ut.addException(new Error("Test Error"))

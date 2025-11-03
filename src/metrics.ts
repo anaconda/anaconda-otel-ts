@@ -109,7 +109,7 @@ export class AnacondaMetrics extends AnacondaCommon {
             return false
         }
         var histogram = this.getHistogram(args.name)
-        histogram.record(args.value!, args.attributes!);
+        histogram.record(args.value!, this.makeEventAttributes(args.attributes));
         return true
     }
 
@@ -124,7 +124,7 @@ export class AnacondaMetrics extends AnacondaCommon {
         }
         var [counter, isUpDown] = this.getCounter(args.name, args.forceUpDownCounter!)
         let by: number = args.by ? Math.abs(args.by!) : 1;
-        counter.add(by, args.attributes ?? {})
+        counter.add(by, this.makeEventAttributes(args.attributes))
         return true
     }
 
@@ -143,7 +143,7 @@ export class AnacondaMetrics extends AnacondaCommon {
             return false
         }
         let by: number = args.by ? -Math.abs(args.by!) : 1;
-        counter.add(by, args.attributes ?? {})
+        counter.add(by, this.makeEventAttributes(args.attributes))
         return true
     }
 
