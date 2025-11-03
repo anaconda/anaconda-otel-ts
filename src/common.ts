@@ -128,7 +128,6 @@ export class AnacondaCommon {
                 }
             }
         }
-
         return result
     }
 }
