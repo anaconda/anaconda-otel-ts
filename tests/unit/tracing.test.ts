@@ -9,6 +9,8 @@ import { Configuration, InternalConfiguration } from '../../src/config'
 import { InternalResourceAttributes, ResourceAttributes } from '../../src/attributes'
 import { AnacondaTrace, ASpanImpl, LocalContext, NoopSpanExporter, type ASpan, TraceArgs } from '../../src/traces'
 import { AnacondaCommon } from '../../src/common';
+import type { Resource as _Resource } from '@opentelemetry/resources';
+type Resource = _Resource;
 
 jest.mock('@opentelemetry/sdk-metrics')
 jest.mock('@opentelemetry/exporter-trace-otlp-grpc')
