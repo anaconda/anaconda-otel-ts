@@ -116,7 +116,7 @@ test("Verify Environment Normalization to Lowercase", () => {
 })
 
 test("Verify Invalid Environment Sets Empty String with Warning", () => {
-    const consoleSpy = jest.spyOn(console, 'warn').mockImplementation()
+    const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
 
     // Test setAttributes
     var attrs = new ResourceAttributes("service", "1.0", "", "", "", "", "", "")
@@ -188,7 +188,7 @@ test("Verify setAttributes Stringifies Complex Types", () => {
 })
 
 test("Verify setAttributes Prevents Overwriting Readonly Fields", () => {
-    const consoleSpy = jest.spyOn(console, 'warn').mockImplementation()
+    const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
 
     var attrs = new ResourceAttributes("service", "1.0")
 
@@ -207,7 +207,7 @@ test("Verify setAttributes Prevents Overwriting Readonly Fields", () => {
 })
 
 test("Verify setAttributes Skips Null and Undefined Values", () => {
-    const consoleSpy = jest.spyOn(console, 'warn').mockImplementation()
+    const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
 
     var attrs = new ResourceAttributes("service", "1.0")
 
