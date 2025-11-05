@@ -8,7 +8,6 @@ import { jest, expect, beforeEach, beforeAll, afterAll, afterEach } from '@jest/
 import { Configuration, InternalConfiguration } from '../../src/config'
 import { InternalResourceAttributes, ResourceAttributes } from '../../src/attributes'
 import { AnacondaTrace, NoopSpanExporter, ASpanImpl } from '../../src/traces'
-import { AnacondaCommon } from '../../src/common';
 import { TraceArgs, type CarrierMap } from '../../src/types'
 import type { Resource as _Resource } from '@opentelemetry/resources';
 type Resource = _Resource;
