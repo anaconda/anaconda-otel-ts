@@ -3,22 +3,11 @@
 
 // src/signals-state.ts
 import type { AnacondaMetrics } from './metrics.js';
-import type { AnacondaTrace, ASpan } from './traces.js';
-import type { AttrMap } from './types.js';
-import { localTimeString as lts } from './common.js';
-
-// A local NOOP span for tests and fallback paths
-class NOOPASpan implements ASpan {
-  addEvent(name: string, attributes?: AttrMap): void {}
-  addException(exception: Error): void {}
-  setErrorStatus(msg?: string): void {}
-  addAttributes(attributes: AttrMap): void {}
-}
+import type { AnacondaTrace } from './traces.js';
 
 export let __initialized = false;
 export let __metrics: AnacondaMetrics | undefined = undefined;
 export let __tracing: AnacondaTrace | undefined = undefined;
-export const __noopASpan: ASpan = new NOOPASpan();
 
 // setters so other modules can update state (imports are read-only)
 export function __setInitialized(v: boolean) { __initialized = v; }

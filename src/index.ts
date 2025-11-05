@@ -11,7 +11,6 @@ export {
     recordHistogram,
     decrementCounter,
     incrementCounter,
-    traceBlock,
-    traceBlockAsync
+    createRootTraceContext,
+    flushAllSignals
 } from './signals.js';
-export type { ASpan } from './traces.js';

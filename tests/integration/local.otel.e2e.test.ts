@@ -11,7 +11,7 @@ import { ResourceAttributes } from '../../src/attributes.js';
 import * as fs from 'fs/promises';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-// MUST run from tyhe repo root.
+// MUST run from the repo root.
 const exportFilePath = '/tmp/otel-int-test/otel-out.json';
 
 async function getResourceAttribute(key: string): Promise<string | undefined> {
@@ -52,26 +52,6 @@ async function getUserID(): Promise<string | undefined> {
         console.error('Error in checkForUserID:', error);
     }
     return undefined
-}
-
-async function checkResourceAttribute(key: string, value: string): Promise<boolean> {
-    try {
-        const content = await fs.readFile(exportFilePath, 'utf-8');
-        const lines = content.trim().split('\n');
-        const line = lines[lines.length > 1 ? lines.length - 1 : 0]
-        const data = JSON.parse(line);
-        const resourceMetric = data.resourceMetrics[data.resourceMetrics.length > 1 ? data.resourceMetrics.length - 1 : 0]
-        for (const a of resourceMetric.resource.attributes) {
-            if (a.key === key) {
-                console.info(`>>> Found key '${key}' with value '${a.value.stringValue ?? '<undefined>'}'; test=${a.value.stringValue === value}`)
-                return a.value.stringValue === value
-            }
-        }
-        console.error(`Failed to find the key '${key}'!`)
-    } catch (error) {
-        console.error('Error in checkResourceAttribute:', error);
-    }
-    return false;
 }
 
 test("Verify environment=test resource attribute", async () => {

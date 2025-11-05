@@ -4,14 +4,14 @@
 import { Configuration } from './config.js';
 import { ResourceAttributes } from './attributes.js';
 import { AnacondaMetrics, CounterArgs, HistogramArgs } from './metrics.js';
-import { AnacondaTrace, type ASpan, TraceArgs } from './traces.js';
+import { AnacondaTrace } from './traces.js';
 import { localTimeString as lts } from './common.js';
+import { type CarrierMap, type TraceContext, TraceArgs } from './types.js';
 
 import {
   __initialized,
   __metrics,
   __tracing,
-  __noopASpan,
   __setInitialized,
   __setMetrics,
   __setTracing,
@@ -197,97 +197,40 @@ export function decrementCounter(args: CounterArgs): boolean {
 }
 
 /**
- * Executes a block of code (async) within a tracing context, optionally attaching
- * attributes and a carrier.
+ * Create the root tracing object (can create more than one) used to send trace events and create child
+ * TraceContext objects. The object end() must be called before the trace span can be sent to the collector.
  *
- * @param args - An argument list object where the `name` field is required.
- *
- * The args is an object defined by (in any order):
- *
- * ```
- * {
- *   name: string = "";  Required; Not supplying a name will result in no value being recorded.
- *   attributes?: AttrMap = {}; Optional; Attributes for the counter metric.
- *   carrier?: CarrierMap = {}; Optional; Used to create a context for the trace block.
- * }
- * ```
- *
+ * @param args - Required: An argument list with a required `name` key (non-empty) for the trace span name, and
+ *               optional `attributes` to set any user attributes on the trace span.
+ * @param carrier - Optional: This is a OTel carrier that can be recieved via message or HTTP headers from another
+ *                  process or source. If unsure don't include this argument.
  * @remarks
- * - If tracing is not initialized, a warning is logged and the block is executed with a no-op span.
- * - ___IMPORTANT___: Calling `reinitializeTelemetry` from within a traceBlock will result in an
- *   exception (Error) being thrown!
- * - This call should be awaited and the code block will be async.
+ * This method does not throw any known exceptions.
  *
  * @example
  * ```typescript
- * await traceBlock({name: "myTraceBlock", attributes: { key: "value" }}) { aspan =>
- *     aspan.addAttributes({ additional: "attributes" });
- *     // do some async code here with awaits...
- *
- *     aspan.addEvent("eventName", { "attr": "value" });
- *
- *     // do some more code with awaits...
- *
- *     aspan.addException(new Error("An error occurred"));
- *     aspan.setErrorStatus("An error occurred");
- *
- *     // finish the code block
- * })
+ *      const ctx = createRootTraceContext({name: "myTraceSpanName"})
+ *      ctx.addEvent({ name: "MyEventName", attributes: { foo: "bar" }})
+ *      ctx.end()
  * ```
+ * @returns The TraceContext object if successful, or undefined if not initialized.
  */
-export async function traceBlockAsync(args: TraceArgs, block: (aspan: ASpan) => Promise<void>): Promise<void> {
+export function createRootTraceContext(args: TraceArgs, carrier: CarrierMap | undefined = undefined): TraceContext | undefined {
     if (!__tracing) {
-        console.warn("*** WARNING: Tracing not initialized. Call initializeTelemetry with 'tracing' signal type first.");
-        await block(__noopASpan); // Call the block with undefined to maintain API consistency
-        return
+        console.warn("*** WARNING: Tracing is not initialized. Call initializeTelemetry first.")
+        return undefined
     }
-    return await __tracing.traceBlockAsync(args, block); // Call the traceBlock method on the AnacondaTrace instance
+    return __tracing.createRootTraceContext(args, carrier)
 }
 
 /**
- * Executes a block of code (async) within a tracing context, optionally attaching
- * attributes and a carrier.
- *
- * @param args - An argument list object where the `name` field is required.
- *
- * The args is an object defined by (in any order):
- *
- * ```
- * {
- *   name: string = "";  Required; Not supplying a name will result in no value being recorded.
- *   attributes?: AttrMap = {}; Optional; Attributes for the counter metric.
- *   carrier?: CarrierMap = {}; Optional; Used to create a context for the trace block.
- * }
- * ```
+ * This method will ignore any export time intervals and will immediatly flush cached data in memory
+ * to the collector. Use sparingly but ALWAYS use it before your application exits.
  *
  * @remarks
- * - If tracing is not initialized, a warning is logged and the block is executed with a no-op span.
- * - ___IMPORTANT___: Calling `reinitializeTelemetry` from within a traceBlock will result in an
- *   exception (Error) being thrown!
- * - This call should be awaited and the code block will be async.
- *
- * @example
- * ```typescript
- * await traceBlock({name: "myTraceBlock", attributes: { key: "value" }}) { aspan =>
- *     aspan.addAttributes({ additional: "attributes" });
- *     // do some async code here with awaits...
- *
- *     aspan.addEvent("eventName", { "attr": "value" });
- *
- *     // do some more code with awaits...
- *
- *     aspan.addException(new Error("An error occurred"));
- *     aspan.setErrorStatus("An error occurred");
- *
- *     // finish the code block
- * })
- * ```
+ * This method does not throw any known exceptions.
  */
-export function traceBlock(args: TraceArgs, block: (aspan: ASpan) => void): void {
-    if (!__tracing) {
-        console.warn("*** WARNING: Tracing not initialized. Call initializeTelemetry with 'tracing' signal type first.");
-        block(__noopASpan); // Call the block with undefined to maintain API consistency
-        return
-    }
-    return __tracing.traceBlock(args, block); // Call the traceBlock method on the AnacondaTrace instance
+export function flushAllSignals(): void {
+    __tracing?.flush()
+    __metrics?.flush()
 }

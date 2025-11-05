@@ -6,6 +6,5 @@ export {
   __initialized,
   __metrics,
   __tracing,
-  __noopASpan,
   __resetSignals,
 } from './signals-state.js';
