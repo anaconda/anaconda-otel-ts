@@ -55,7 +55,7 @@ async function getUserID(): Promise<string | undefined> {
 }
 
 test("Verify environment=test resource attribute", async () => {
-    const config = new Configuration(new URL("http://localhost:4318/v1/metrics")).setMetricExportIntervalMs(100);
+    const config = new Configuration(new URL("http://localhost:4318/v1/metrics")).setMetricExportIntervalMs(1000);
     const attrs = new ResourceAttributes("test-service", "v1.0.0").setAttributes({environment: "test"});
 
     initializeTelemetry(config, attrs, ["metrics"]);
@@ -67,7 +67,7 @@ test("Verify environment=test resource attribute", async () => {
 });
 
 test("Verify userId=12345 resource attribute after reinitialize", async () => {
-    const config = new Configuration(new URL("http://localhost:4318/v1/metrics")).setMetricExportIntervalMs(100);
+    const config = new Configuration(new URL("http://localhost:4318/v1/metrics")).setMetricExportIntervalMs(1000);
     const attrs = new ResourceAttributes("test-service", "v1.0.0").setAttributes({environment: "test"});
 
     initializeTelemetry(config, attrs, ["metrics"]);
