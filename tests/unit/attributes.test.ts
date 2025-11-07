@@ -116,7 +116,7 @@ test("Verify Environment Normalization to Lowercase", () => {
 })
 
 test("Verify Invalid Environment Sets Empty String with Warning", () => {
-    const consoleSpy = jest.spyOn(console, 'warn').mockImplementation()
+    const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
 
     // Test setAttributes
     var attrs = new ResourceAttributes("service", "1.0", "", "", "", "", "", "")
@@ -188,7 +188,7 @@ test("Verify setAttributes Stringifies Complex Types", () => {
 })
 
 test("Verify setAttributes Prevents Overwriting Readonly Fields", () => {
-    const consoleSpy = jest.spyOn(console, 'warn').mockImplementation()
+    const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
 
     var attrs = new ResourceAttributes("service", "1.0")
 
@@ -207,7 +207,7 @@ test("Verify setAttributes Prevents Overwriting Readonly Fields", () => {
 })
 
 test("Verify setAttributes Skips Null and Undefined Values", () => {
-    const consoleSpy = jest.spyOn(console, 'warn').mockImplementation()
+    const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
 
     var attrs = new ResourceAttributes("service", "1.0")
 
@@ -256,18 +256,18 @@ test("Verify getAttributes Returns All Attributes with OTEL Naming", () => {
         custom_attr: "custom_value"
     })
 
-    var result = internal_attrs.getAttributes()
+    var result = internal_attrs.getResourceAttributes()
+    var result2 = internal_attrs.getEventAttributes()
 
     expect(result["service.name"]).toBe("test-service")
     expect(result["service.version"]).toBe("2.0.0")
     expect(result["environment"]).toBe("production")
-    expect(result["user.id"]).toBe("test-user")
+    expect(result2["user.id"]).toBe("test-user")
     expect(result["client.sdk.version"]).toBe("0.0.0")
     expect(result["schema.version"]).toBe("0.2.0")
 
-    expect(result["parameters"]).toBeDefined()
-    var params = JSON.parse(result["parameters"])
-    expect(params["custom_attr"]).toBe("custom_value")
+    expect(result["environment"]).toBe("production")
+    expect(result2["custom_attr"]).toBe("custom_value")
 })
 
 test("Verify Multiple Instances Have Unique IDs", () => {
@@ -332,20 +332,14 @@ test("Verify Parameters JSON String Format", () => {
     expect(impl.parameters["count"]).toBe("100")
     expect(impl.parameters["enabled"]).toBe("false")
 
-    var result = impl.getAttributes()
-    var parametersStr = result["parameters"]
-
-    // Verify parameters exists
-    expect(parametersStr).toBeDefined()
-
-    // Verify it's a valid JSON string
-    var parsed = JSON.parse(parametersStr)
-    expect(parsed["tags"]).toBe('["production","v2"]')
-    expect(parsed["metadata"]).toBe('{"region":"us-east-1","zone":"a"}')
-    expect(parsed["count"]).toBe("100")
-    expect(parsed["enabled"]).toBe("false")
+    var result = impl.getEventAttributes()
+     // Verify parameters exists
+    expect(result["tags"]).toBe('["production","v2"]')
+    expect(result["metadata"]).toBe('{"region":"us-east-1","zone":"a"}')
+    expect(result["count"]).toBe("100")
+    expect(result["enabled"]).toBe("false")
 
     // Verify we can parse the nested values
-    expect(JSON.parse(parsed["tags"])).toEqual(["production", "v2"])
-    expect(JSON.parse(parsed["metadata"])).toEqual({ region: "us-east-1", zone: "a" })
+    expect(JSON.parse(result["tags"])).toEqual(["production", "v2"])
+    expect(JSON.parse(result["metadata"])).toEqual({ region: "us-east-1", zone: "a" })
 })

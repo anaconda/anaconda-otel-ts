@@ -252,16 +252,32 @@ export class InternalResourceAttributes {
         return this.serviceVersion
     }
 
-    public getAttributes(): AttributeDict {
+    public getEventAttributes(): AttributeDict {
+        const result: AttributeDict = {};
+
+        // Add known changing attributes with OTEL names
+        for (const [key, otelName] of Object.entries(InternalResourceAttributes.otelNameMap)) {
+            if (key !== 'userId') { continue }
+            result[otelName] = (this as any)[key];
+        }
+
+        // Add parameters
+        for (const key in this.parameters) {
+            result[key] = this.parameters[key]
+        }
+
+        return result
+    }
+
+    public getResourceAttributes(): AttributeDict {
         const result: AttributeDict = {};
 
         // Add known attributes with OTEL names
         for (const [key, otelName] of Object.entries(InternalResourceAttributes.otelNameMap)) {
+            if (key === 'userId') { continue }
             result[otelName] = (this as any)[key];
         }
 
-        // Add parameters as a clean JSON string
-        result['parameters'] = JSON.stringify(this.parameters);
         return result;
     }
 

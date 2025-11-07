@@ -93,14 +93,16 @@ export interface ASpan {
 
 export class ASpanImpl implements ASpan {
     private span: Span
+    private common: AnacondaCommon
 
-    constructor(span: Span) {
+    constructor(span: Span, parent: AnacondaCommon) {
         this.span = span
+        this.common = parent
         this.span.setStatus({code: SpanStatusCode.OK, message: ""})
     }
 
     addEvent(name: string, attributes: AttrMap): void {
-        this.span.addEvent(name, attributes)
+        this.span.addEvent(name, this.common.makeEventAttributes(attributes))
     }
 
     addException(exception: Error): void {
@@ -164,7 +166,7 @@ export class AnacondaTrace extends AnacondaCommon {
         for (let key of Object.keys(args.attributes ? args.attributes : {})) {
             span.setAttribute(key, args.attributes![key])
         }
-        block(new ASpanImpl(span))
+        block(new ASpanImpl(span, this))
         span.end()
         this.depth--
         this.provider!.forceFlush()
@@ -181,7 +183,7 @@ export class AnacondaTrace extends AnacondaCommon {
         for (let key of Object.keys(args.attributes ? args.attributes : {})) {
             span.setAttribute(key, args.attributes![key])
         }
-        block(new ASpanImpl(span))
+        block(new ASpanImpl(span, this))
         span.end()
         this.depth--
         await this.provider!.forceFlush()
