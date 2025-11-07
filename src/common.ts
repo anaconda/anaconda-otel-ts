@@ -15,6 +15,7 @@ const resourceFromAttributes =
 
 // type import + alias (so you can keep using `Resource` in type positions)
 import type { Resource as _Resource } from '@opentelemetry/resources';
+import type { AttrMap } from './types.js';
 type Resource = _Resource;
 
 export class AnacondaCommon {
@@ -26,7 +27,7 @@ export class AnacondaCommon {
         this.config = toImplCfg(config)
         this.attributes = toImplAttrs(attributes)
 
-        let resourceObject = this.attributes.getAttributes()
+        let resourceObject = this.attributes.getResourceAttributes()
         if (this.config.getEntropy() !== '') {
             resourceObject['session.id'] = this.config.getEntropy()
         }
@@ -36,7 +37,7 @@ export class AnacondaCommon {
     protected makeNewResource(newAttributes: ResourceAttributes): void {
         this.attributes = toImplAttrs(newAttributes)
 
-        let resourceObject = this.attributes.getAttributes()
+        let resourceObject = this.attributes.getResourceAttributes()
         if (this.config.getEntropy() !== '') {
             resourceObject['session.id'] = this.config.getEntropy()
         }
@@ -108,6 +109,26 @@ export class AnacondaCommon {
             headers['Content-Type'] = 'application/x-protobuf'
         }
         return headers
+    }
+
+    makeEventAttributes(userAttributes: AttrMap | undefined | null): AttrMap {
+        // Get changing attributes from ResourceAttributes...
+        const result: AttrMap = this.attributes.getEventAttributes()
+
+        // Make sure there is a 'user.id' value...
+        if (!result['user.id']) {
+            result['user.id'] = "anonymous"
+        }
+
+        // Add user supplied attributes if any...
+        if (userAttributes) {
+            for (const key in userAttributes) {
+                if (userAttributes[key]) {
+                    result[key] = userAttributes[key]
+                }
+            }
+        }
+        return result
     }
 }
 
