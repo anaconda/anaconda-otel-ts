@@ -68,7 +68,7 @@ test("Verify environment=test resource and metric attributes", async () => {
     incrementCounter({name: "test_counter", by: 1, attributes: {'user.id': '12345'}});
     flushAllSignals()
 
-    sleep(3500) // Allow for collector write time
+    sleep(5000) // Allow for collector write time
     const env = await getResourceAttribute('environment');
     const user = await getUserID()
     expect(env).toBe('test');

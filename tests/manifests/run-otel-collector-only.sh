@@ -1,7 +1,7 @@
 #!/bin/bash
 
 dir=$(dirname $0)
-outputDir="/tmp/otel-int-test"
+outputDir="./.tmp"
 
 cd "${dir}/../.."
 runDir="$(pwd)"
@@ -31,7 +31,7 @@ chmod 777 "${outputDir}"
 echo ">>> Use Ctrl+C to stop the container <<<"
 docker run -t --rm --name testingCollector \
   -v "${manDir}/otel-collector-config.yaml":/etc/otelcol/config.yaml \
-  -v "${outputDir}":/tmp/otel-output \
+  -v "${outputDir}":/tmp \
   -p 127.0.0.1:4317:4317 -p 127.0.0.1:4318:4318 \
   "${image}" \
   --config /etc/otelcol/config.yaml
