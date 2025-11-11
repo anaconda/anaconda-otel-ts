@@ -198,7 +198,7 @@ export function decrementCounter(args: CounterArgs): boolean {
 
 /**
  * Create the root tracing object (can create more than one) used to send trace events and create child
- * TraceContext objects. The object end() must be called before the trace span can be sent to the collector.
+ * TraceContext objects. The object `end()` must be called before the trace span can be sent to the collector.
  *
  * @param args - Required: An argument list with a required `name` key (non-empty) for the trace span name, and
  *               optional `attributes` to set any user attributes on the trace span.

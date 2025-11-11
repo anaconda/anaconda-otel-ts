@@ -215,36 +215,67 @@ Metric names must start with a letter and then only contain alphanumeric or unde
 ---
 
 ## Tracing with Context Manager
-***<span style="color: red; background-color: black; padding: 3pt"> >>> This feature is still in alpha level code developement. <<<</span>***
 
-Wrap operations inside a tracing context using `traceBlock`:
+<span style="color: red; background-color: yellow; font-style: italic; font-weight: bold; font-size: large">
+Note: At the time of this writing there is not a public tracing endpoint for traces collection.
+</span>
+
+
+Tracing allow the application to trace (or follow) a user workflow. This is accomplished by creating _one or
+more_ root contexts with [`createRootTraceContext`](../functions/index.createRootTraceContext.html). If
+continuing, the trace context from another process use the [`CarrierMap`](../types/index.CarrierMap.html)
+information passes via messaging or HTTP headers in the call to the create a root context.
+You only need to add carriers to the root, all children trace contexts inherit the information. You can
+retrieve the `CarrierMap` from any [`TraceContext`](../interfaces/index.TraceContext.html) object for use
+across process or server boundaries. See the
+[API documentation](../modules/index.html) for more details.
 
 ```typescript
-traceBlock({name: "topLevel", attributes: {"someKey": "someValue"}}, (span: ASpan) => {
-    // send GET request, etc...
-})
+// This creates a root context with name "root-context" and attributes foo="bar"...
+let rootContext = createRootTraceContext({name: 'root-context', attributes: {foo:'bar'}})
 ```
 
-You can also pass in a `carrier` dictionary for trace context propagation across services.
+Child (or nested) contexts are created from the root context with
+[`rootContext.createchildtracecontext`](../interfaces/index.TraceContext.html#createchildtracecontext-1).
+More attributes can be added. The child will inherit the parent attributes.
+
+```typescript
+// This creates a child context with name "child-context" and attributes meaning="42"...
+let childContext = rootContext.createchildtracecontext({name: 'child-context', attributes: {meaning: '42'}})
+```
+
+The `end()` method ___MUST___ be called in order for the telementry to be sent. There are no destructors in Typescript
+so this is _absolutely required_. Think of a child context nested in a root context, this also implies the child's
+`end()` method must be called before the parents `end()` method is called. Calling in a differnt order may confuse
+the tracing telemetry.
 
 ### Naming Traces
-While metrics have enforced regex rules, traces have more permissive options. Spaces and non-alphanumeric characters are allowed.
+While metrics have enforced regex rules, trace names have more permissive options. Spaces and non-alphanumeric
+characters are allowed.
 
 ---
 
-With telemetry initialized, your application will now automatically export traces and metrics to the configured OpenTelemetry Collector endpoints.
+With telemetry initialized, your application will now export traces and metrics to the configured OpenTelemetry
+Collector endpoints.
 
 ## Notes on Resource Attributes
-No particular attribute values are required for the class from clients besides `serviceName` and `serviceVersion` at this time. There are two distinct patterns with which attributes are configured. In an OpenTelemetry payload, both patterns end up in its resource attributes.
+No particular attribute values are required for the class from clients besides `serviceName` and `serviceVersion` at
+this time. There are two distinct patterns with which attributes are configured. In an OpenTelemetry payload, both
+patterns end up in its resource attributes.
 
 ### Common Attributes
-These are documented in the ResourceAttributes class string and are referred to as common because it is likely that most if not all clients will share them. They are part of the minimum telemetry schema for unified telemetry.
+These are documented in the ResourceAttributes class string and are referred to as common because it is likely that
+most if not all clients will share them. They are part of the minimum telemetry schema for unified telemetry.
 
-`serviceName`, `serviceVersion`, `osType`, `osVersion`,`pythonVersion`, `hostname`, `platform`, `environment`, `userId`, `clientSdkVersion`, `schemaVersion`, `sessionId`
+`serviceName`, `serviceVersion`, `osType`, `osVersion`,`pythonVersion`, `hostname`, `platform`, `environment`,
+`userId`, `clientSdkVersion`, `schemaVersion`, `sessionId`
 
+- `userId` will not be found with the other "resources" in the OTel output. Instead it it added to each event's
+  attributes. This is required since a session may transition from anonymous users to real users and "resources"
+  are fixed at OTel initialization.
 - You will not see `sessionId` in the ResourceAttributes class even though it is a common attribute
 - This is because it is set by this package after the client is finished initializing
-- It is a result of hashing the SESSION_ENTROPY_VALUE_NAME
+- It is a result of hashing the SESSION_ENTROPY_VALUE_NAME value in the environment.
 
 A configuration of this class using all available initialization parameters would look like:
 ```typescript
@@ -259,7 +290,9 @@ const attrs = new ResourceAttributes(
 )
 ```
 
-We have implemented Python methods from `platform` and `socket` to gather osType, osVersion, pythonVersion, and hostname by default if they are not provided. This is just an opportunity to provide your own values.
+We have implemented Python methods from `platform` and `socket` to gather osType, osVersion, pythonVersion, and
+hostname by default if they are not provided. This is just an opportunity to provide your own values.
+
 - Example: if a server on AWS should have a hostname indicating it is part of the cloud provider
 
 ### Dynamic Attributes
