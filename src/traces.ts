@@ -134,7 +134,6 @@ export class AnacondaTrace extends AnacondaCommon {
         const context = new TraceContextImpl(this, ctxWithSpan, rootSpan)
         const c: CarrierMap = {}
         context.inject(c)
-        console.info(c)
         return context
     }
 
