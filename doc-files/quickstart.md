@@ -176,6 +176,25 @@ This is useful because session_id can be used by a backend to tie all user actio
 
 ---
 
+# Authentication
+This package uses a simple Bearer token in HTTP for authentication. This token may expire, so what is the best way to handle this token behavior? Right now the short answer it to call `changeSignalConnection` passing in the new authentication token.
+
+There are some important things to be aware of however:
+
+* As long as the expired token is being used, telemetry will be lost.
+* Its the application/services responsibility to know either ahead of time or as quickly as possible that a new token is required.
+  - The application should use the token expiration time (T) and refresh the token before it expires. i.e. on the interval `(7 * T) / 8` is a good choice, this will guarantee no loss of telemetry.
+  - Ideally, the access token, refresh token, and target time to renew should be securely persisted between sessions.
+* ___Note:___ After multiple retries with a bad token, the OpenTelemetry library will stop sending telemetry from that exporter. Then all telemetry is lost until `changeSignalConnection` is called with a new token.
+
+Currently, this package does not notify the application/service of an expired token. Ideally this package should callback to the application/service for a new token. However, without getting too technical, this can’t be done reliably. This behavior stems from the fact that OpenTelemetry will only wait so long (~30 seconds) before it decides that the telemetry failed to send and then it it will drop the telemetry with an internal error, gracefully ending that telemetry send operation. If getting a new token takes longer than that (say a user must provide credentials manually), then the data is lost.
+
+Trying inline token update has one other __very bad__ side effect, it blocks the main thread (frequently the UI thread of the application) until completed. This could create a deadlock situation (the user __can’t__ login because the UI is locked).
+
+The best solution is to update the token __before__ expiration or minimize telemetry loss by updating the token as soon as possible after expiration. A possible future feature of this package would inform the application/service of this expiration event (on first error from the server that the token was rejected). This feature will still lose at least the telemetry that caused the error.
+
+---
+
 # Recording Telemetry
 Below are more in depth examples on recording telemetry once initialization is complete. These functions contain the `attributes` parameter. This is where call specific data can be passed as attributes to pieces of telemetry.
 
