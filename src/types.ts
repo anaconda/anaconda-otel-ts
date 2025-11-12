@@ -72,7 +72,7 @@ export interface TraceContext {
      * for this context. This can be passed across process/host boundaries to continue
      * the context (associate with) on a another process or host (client/server models).
      *
-     * @param carrier - Create an pass this into this method to populate it.
+     * @param carrier - Create an instance then pass into this method to populate it.
      *
      * @remarks
      * This method does not throw any known exceptions.
