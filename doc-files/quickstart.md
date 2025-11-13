@@ -191,7 +191,7 @@ Currently, this package does not notify the application/service of an expired to
 
 Trying inline token update has one other __very bad__ side effect, it blocks the main thread (frequently the UI thread of the application) until completed. This could create a deadlock situation (the user __can’t__ login because the UI is locked).
 
-The best solution is to update the token __before__ expiration or minimize telemetry loss by updating the token as soon as possible after expiration. A possible future feature of this package would inform the application/service of this expiration event (on first error from the server that the token was rejected). This feature will still lose at least the telemetry that caused the error.
+The best solution is to update the token __before__ expiration or minimize telemetry loss by updating the token as soon as possible after expiration. A possible future feature of this package would inform the application/service of this expiration event (on first error from the server that the token was rejected). This feature will still lose _at least_ the telemetry that caused the error.
 
 ---
 
