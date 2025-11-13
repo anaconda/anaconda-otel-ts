@@ -45,8 +45,8 @@ async function main() {
     decrementCounter({name: "feature1", by: 2})
 
     console.log("=== Switching to EP #2.")
-    await changeSignalConnection("tracing", new URL("http://localhost:5318/v1/traces"))
-    await changeSignalConnection("metrics", new URL("http://localhost:5318/v1/metrics"))
+    await changeSignalConnection("tracing", { endpoint: new URL("http://localhost:5318/v1/traces") })
+    await changeSignalConnection("metrics", { endpoint: new URL("http://localhost:5318/v1/metrics") })
     console.log("=== Running...EP #2")
 
     recordHistogram({name: "myValue2", value: 42})

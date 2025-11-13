@@ -72,9 +72,10 @@ export function initializeTelemetry(config: Configuration,
  * Function used to change the endpoint or authorization token or both for a signal type.
  *
  * @param signal - Either 'metrics' or 'tracing' to select which connection to change.
- * @param endpoint - The optional new endpoint for the specific signal.
- * @param authToken - The optional new authorization token for the connection to use.
- * @param certFile - The optional certificate file for mTLS.
+ * @param args - Arguments object of possible connection changes. Must have ___at least___ one that is defined.
+ * @param args.endpoint - The new endpoint for the specific signal.
+ * @param args.authToken - The new authorization token for the connection to use.
+ * @param args.certFile - The certificate file for mTLS.
  *
  * @returns - true if successful, false if it failed.
  *
@@ -84,16 +85,21 @@ export function initializeTelemetry(config: Configuration,
  *      * Order of other telemetry may be different than expected.
  *  - This method does not throw.
  */
-export async function changeSignalConnection(signal: Signal, endpoint: URL | undefined,
-                                             authToken: string | undefined = undefined,
-                                             certFile: string | undefined = undefined): Promise<boolean> {
+export async function changeSignalConnection(signal: Signal, args:
+     {  endpoint?: URL,
+        authToken?: string,
+        certFile?: string
+    }): Promise<boolean> {
     if (!__initialized) {
         return false
     }
+    if (args.endpoint === undefined && args.authToken === undefined && args.certFile === undefined) {
+        return false
+    }
     if (signal === 'metrics') {
-        return await __metrics?.changeConnection(endpoint, authToken, certFile) ?? false
+        return await __metrics?.changeConnection(args.endpoint, args.authToken, args.certFile) ?? false
     } else {
-        return await __tracing?.changeConnection(endpoint, authToken, certFile) ?? false
+        return await __tracing?.changeConnection(args.endpoint, args.authToken, args.certFile) ?? false
     }
 }
 
