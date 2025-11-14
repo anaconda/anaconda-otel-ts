@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
+    flushAllSignals,
     incrementCounter,
     initializeTelemetry,
     recordHistogram
@@ -11,16 +12,16 @@ import { ResourceAttributes } from '../../src/attributes.js';
 import * as fs from 'fs/promises';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-// MUST run from tyhe repo root.
-const exportFilePath = '/tmp/otel-int-test/otel-out.json';
+// MUST run from the repo root.
+const exportFilePath = './.tmp/otel-out.json';
 
 async function getResourceAttribute(key: string): Promise<string | undefined> {
     try {
         const content = await fs.readFile(exportFilePath, 'utf-8');
         const lines = content.trim().split('\n');
-        const line = lines[lines.length > 1 ? lines.length - 1 : 0]
+        const line = lines[lines.length - 1]
         const data = JSON.parse(line);
-        const resourceMetric = data.resourceMetrics[data.resourceMetrics.length > 1 ? data.resourceMetrics.length - 1 : 0]
+        const resourceMetric = data.resourceMetrics[data.resourceMetrics.length > 0 ? data.resourceMetrics.length - 1 : 0]
         for (const a of resourceMetric.resource.attributes) {
             if (a.key === key) {
                 console.info(`>>> Found key '${key}' with value '${a.value.stringValue ?? '<undefined>'}'`)
@@ -41,7 +42,11 @@ async function getUserID(): Promise<string | undefined> {
         const last = lines[lines.length - 1]
         const data = JSON.parse(last);
         const metrics = data.resourceMetrics[0].scopeMetrics[0].metrics
-        const attr = metrics[metrics.length > 1 ? metrics.length - 1: 0].sum.dataPoints[0].attributes
+        const metricsLastIdx: number = metrics.length > 0 ? metrics.length - 1: 0
+        const sum = metrics[metricsLastIdx].sum
+        const histogram = metrics[metricsLastIdx].histogram
+        const dataPoints = sum ? sum.dataPoints : histogram.dataPoints
+        const attr = dataPoints[0].attributes
         for (const a of attr) {
             if (a.key === "user.id") {
                 return a.value.stringValue
@@ -54,47 +59,18 @@ async function getUserID(): Promise<string | undefined> {
     return undefined
 }
 
-async function checkResourceAttribute(key: string, value: string): Promise<boolean> {
-    try {
-        const content = await fs.readFile(exportFilePath, 'utf-8');
-        const lines = content.trim().split('\n');
-        const line = lines[lines.length > 1 ? lines.length - 1 : 0]
-        const data = JSON.parse(line);
-        const resourceMetric = data.resourceMetrics[data.resourceMetrics.length > 1 ? data.resourceMetrics.length - 1 : 0]
-        for (const a of resourceMetric.resource.attributes) {
-            if (a.key === key) {
-                console.info(`>>> Found key '${key}' with value '${a.value.stringValue ?? '<undefined>'}'; test=${a.value.stringValue === value}`)
-                return a.value.stringValue === value
-            }
-        }
-        console.error(`Failed to find the key '${key}'!`)
-    } catch (error) {
-        console.error('Error in checkResourceAttribute:', error);
-    }
-    return false;
-}
-
-test("Verify environment=test resource attribute", async () => {
-    const config = new Configuration(new URL("http://localhost:4318/v1/metrics")).setMetricExportIntervalMs(100);
+test("Verify environment=test resource and metric attributes", async () => {
+    const config = new Configuration(new URL("http://localhost:4318/v1/metrics")).setMetricExportIntervalMs(1000);
     const attrs = new ResourceAttributes("test-service", "v1.0.0").setAttributes({environment: "test"});
 
     initializeTelemetry(config, attrs, ["metrics"]);
     recordHistogram({name: "test_histogram", value: 100});
-    await sleep(900);  // collector flush interval is .1 second
-
-    const result = await getResourceAttribute('environment');
-    expect(result).toBe('test');
-});
-
-test("Verify userId=12345 resource attribute after reinitialize", async () => {
-    const config = new Configuration(new URL("http://localhost:4318/v1/metrics")).setMetricExportIntervalMs(100);
-    const attrs = new ResourceAttributes("test-service", "v1.0.0").setAttributes({environment: "test"});
-
-    initializeTelemetry(config, attrs, ["metrics"]);
-    recordHistogram({name: "test_histogram", value: 100});
-
     incrementCounter({name: "test_counter", by: 1, attributes: {'user.id': '12345'}});
-    await sleep(900);  // collector flush interval is .1 second
+    flushAllSignals()
 
-    expect(await getUserID()).toBe('12345');
+    sleep(5000) // Allow for collector write time
+    const env = await getResourceAttribute('environment');
+    const user = await getUserID()
+    expect(env).toBe('test');
+    expect(user).toBe('12345');
 });

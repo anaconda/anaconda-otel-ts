@@ -6,7 +6,7 @@ receivers:
 
 exporters:
   file:
-    path: /tmp/otel-output/otel-out.json
+    path: /tmp/otel-out.json
     flush_interval: 1
 
   debug:

@@ -41,7 +41,7 @@
     "typescript": "^5.9.2"
   },
   "scripts": {
-    "clean": "rm -rf dist dist-test docs coverage anaconda-opentelemetry-*.tgz",
+    "clean": "rm -rf dist dist-test docs coverage anaconda-opentelemetry-*.tgz .tmp",
     "build": "tsc -p tsconfig.json",
     "prepack": "npm run build",
     "test": "NODE_OPTIONS=\"--experimental-vm-modules\" jest",

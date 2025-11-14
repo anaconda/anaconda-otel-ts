@@ -29,7 +29,8 @@ export type EndpointTuple = [URL, string | undefined, string | undefined]
  * - `ATEL_TRACE_TLS_PRIVATE_CA_CERT_FILE`
  * - `ATEL_USE_CONSOLE` (to route ALL OTEL signals to console output, this is not a per signal type flag)
  * - `ATEL_METRICS_EXPORT_INTERVAL_MS` (to set the interval for metrics export, default is 60000ms, minumum is 1000ms)
- * - `ATEL_SKIP_INTERNET_CHECK` (to skip the internet connectivity check, use "true" or "yes" or "1" to skip)
+ * - `ATEL_TRACES_EXPORT_INTERVAL_MS` (to set the interval for metrics export, default is 60000ms, minumum is 1000ms)
+* - `ATEL_SKIP_INTERNET_CHECK` (to skip the internet connectivity check, use "true" or "yes" or "1" to skip)
  * - `ATEL_TRACING_SESSION_ENTROPY` (to set the entropy for the tracing session, used to generate unique session IDs)
  * - `ATEL_USE_CUMULATIVE_METRICS` (This will set CUMULATIVE for counter and histogram metrics instead of the default DELTA)
  *
@@ -133,15 +134,30 @@ export class Configuration {
     /**
      * Sets the interval, in milliseconds, at which metrics are exported.
      *
-     * @param value - The export interval in milliseconds. Must be at least 100ms.
+     * @param value - The export interval in milliseconds. Must be at least 1000ms.
      * @returns The current instance for method chaining.
      * @throws {Error} If the provided value is less than 1000ms.
      */
     public setMetricExportIntervalMs(value: number): this {
-        if (value < 100) {
+        if (value < 1000) {
             throw new Error("*** Metric export interval must be at least 100ms")
         }
         this._impl.metricsExportIntervalMs = value
+        return this
+    }
+
+    /**
+     * Sets the interval, in milliseconds, at which traces are exported.
+     *
+     * @param value - The export interval in milliseconds. Must be at least 1000ms.
+     * @returns The current instance for method chaining.
+     * @throws {Error} If the provided value is less than 1000ms.
+     */
+    public setTraceExportIntervalMs(value: number): this {
+        if (value < 1000) {
+            throw new Error("*** Trace export interval must be at least 100ms")
+        }
+        this._impl.tracesExportIntervalMs = value
         return this
     }
 
@@ -239,6 +255,7 @@ export class InternalConfiguration {
     public traceEndpoint: EndpointTuple | undefined = undefined
     public useConsole: boolean = false
     public metricsExportIntervalMs: number = 60000 // Default to 60 seconds
+    public tracesExportIntervalMs: number = 60000 // Default to 60 seconds
     public skipInternetCheck: boolean = false
     public entropy: string = ""
     public useDebug: boolean = false
@@ -316,6 +333,18 @@ export class InternalConfiguration {
             return value
         }
         return this.metricsExportIntervalMs
+    }
+
+    public getTracesExportIntervalMs(): number {
+        if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_TRACES_EXPORT_INTERVAL_MS)) {
+            var str = process.env.ATEL_TRACES_EXPORT_INTERVAL_MS as string
+            var value = parseInt(str, 10)
+            if (isNaN(value) || value < 1000) {
+                return this.tracesExportIntervalMs // Default internal storage milliseconds if invalid.
+            }
+            return value
+        }
+        return this.tracesExportIntervalMs
     }
 
     public getSkipInternetCheck(): boolean {

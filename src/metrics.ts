@@ -147,6 +147,10 @@ export class AnacondaMetrics extends AnacondaCommon {
         return true
     }
 
+    flush(): void {
+        this.reader?.forceFlush()
+    }
+
     private makeExporter(scheme: string, url: URL, httpHeaders: Record<string,string>,
                          creds?: ChannelCredentials): PushMetricExporter | undefined {
         var urlStr = url.href

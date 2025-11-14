@@ -193,3 +193,6 @@ src/*.js
 
 # ignore packaged tarballs
 *.tgz
+
+# ignore .tmp folders
+**/.tmp
