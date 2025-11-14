@@ -10,7 +10,7 @@ import {
     recordHistogram,
     decrementCounter,
     incrementCounter,
-    createRootTraceContext,
+    getTrace,
     flushAllSignals
 } from '../../src/signals'
 import {
@@ -19,7 +19,7 @@ import {
     __metrics,
     __tracing
 } from '../../src/testing-signals.js';
-import { type TraceContext } from '../../src/types';
+import { type TraceSpan } from '../../src/types';
 
 beforeEach(() => {
     jest.clearAllMocks()
@@ -175,18 +175,18 @@ test("decrementCounter without metrics initialized", () => {
     expect(console.warn).toHaveBeenCalledWith("*** WARNING: Metrics not initialized. Call initializeTelemetry first.")
 })
 
-test("createRootTraceContext with tracing initialized", async () => {
+test("createRootTraceSpan with tracing initialized", async () => {
     const config = new Configuration().setUseConsoleOutput(true)
     const attributes = new ResourceAttributes("test_service", "0.0.1")
 
     initializeTelemetry(config, attributes, ["tracing"])
-    let ctx = createRootTraceContext({name: "test_trace", attributes: { "key": "value" }})
+    let ctx = getTrace("test_trace", { attributes: { "key": "value" }})
     ctx?.addEvent("event", { key: "value" })
     expect(console.warn).not.toHaveBeenCalledWith("*** Tracing not initialized. Call initializeTelemetry with 'tracing' signal type first.")
 })
 
-test("createRootTraceContext without tracing initialized", async () => {
-    let ctx = createRootTraceContext({name: "test_trace", attributes: { "key": "value" }})
+test("createRootTraceSpan without tracing initialized", async () => {
+    let ctx = getTrace("test_trace", { attributes: { "key": "value" }})
     expect(console.warn).toHaveBeenCalledWith("*** WARNING: Tracing is not initialized. Call initializeTelemetry first.")
 })
 

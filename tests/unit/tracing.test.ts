@@ -7,7 +7,7 @@ import * as path from 'path'
 import { jest, expect, beforeEach, beforeAll, afterAll, afterEach } from '@jest/globals';
 import { Configuration, InternalConfiguration } from '../../src/config'
 import { InternalResourceAttributes, ResourceAttributes } from '../../src/attributes'
-import { AnacondaTrace, NoopSpanExporter, TraceContextImpl } from '../../src/traces'
+import { AnacondaTrace, NoopSpanExporter, TraceSpanImpl } from '../../src/traces'
 import { AnacondaCommon } from '../../src/common';
 import { TraceArgs, type CarrierMap } from '../../src/types'
 import type { Resource as _Resource } from '@opentelemetry/resources';
@@ -152,7 +152,7 @@ test("test NoOp exporter", () => {
 
     // Create an instance of AnacondaMetrics
     const tracer = new AnacondaTrace(config, attributes)
-    const ctx = tracer.createRootTraceContext({name: "###"})
+    const ctx = tracer.getTrace("###")
     expect(ctx === undefined)
  })
 
@@ -160,35 +160,33 @@ test("test NoOp exporter", () => {
     new TraceArgs()
  })
 
- test("TraceContextImpl tests with ID", () => {
+ test("TraceSpanImpl tests with ID", () => {
     const config = new Configuration().setUseConsoleOutput(true)
     const attributes = new ResourceAttributes("test_service", "0.0.1")
     attributes.setAttributes({ userId: "TestUser" })
     const tracer = new AnacondaTrace(config, attributes)
-    const ut = tracer.createRootTraceContext({ name: "testing" })
+    const ut = tracer.getTrace("testing")
     ut.addEvent("event")
-    const child = ut.createChildTraceContext({ name: "child" })
-    ut.addEvent("childEvent")
-    const carrier: CarrierMap = {}
-    child.inject(carrier)
-    console.error(carrier)
+    let child = tracer.getTrace("child", undefined, undefined, ut)
+    child.addEvent("childEvent")
+    const carrier: CarrierMap = child.getCurrentCarrier()
+    child.end()
+    child = tracer.getTrace("child", undefined, ut.getCurrentCarrier(), undefined)
     expect(Object.keys(carrier).length).toBe(2)
     expect(carrier['baggage']).toBe('user.id=TestUser')
     child.end()
     ut.end()
 })
 
- test("TraceContextImpl tests without ID", () => {
+ test("TraceSpanImpl tests without ID", () => {
     const config = new Configuration().setUseConsoleOutput(true)
     const attributes = new ResourceAttributes("test_service", "0.0.1")
     const tracer = new AnacondaTrace(config, attributes)
-    const ut = tracer.createRootTraceContext({ name: "testing" })
+    const ut = tracer.getTrace("testing")
     ut.addEvent("event")
-    const child = ut.createChildTraceContext({ name: "child" })
+    const child = tracer.getTrace("child", undefined, undefined, ut)
     ut.addEvent("childEvent")
-    const carrier: CarrierMap = {}
-    child.inject(carrier)
-    console.error(carrier)
+    const carrier: CarrierMap = child.getCurrentCarrier()
     expect(Object.keys(carrier).length).toBe(1)
     child.end()
     ut.end()

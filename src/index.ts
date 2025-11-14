@@ -11,6 +11,6 @@ export {
     recordHistogram,
     decrementCounter,
     incrementCounter,
-    createRootTraceContext,
+    getTrace,
     flushAllSignals
 } from './signals.js';

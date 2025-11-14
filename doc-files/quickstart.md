@@ -222,26 +222,25 @@ Note: At the time of this writing there is not a public tracing endpoint for tra
 
 
 Tracing allow the application to trace (or follow) a user workflow. This is accomplished by creating _one or
-more_ root contexts with [`createRootTraceContext`](../functions/index.createRootTraceContext.html). If
+more_ parent contexts with [`getTrace`](../functions/index.getTrace.html). If
 continuing, the trace context from another process use the [`CarrierMap`](../types/index.CarrierMap.html)
-information passes via messaging or HTTP headers in the call to the create a root context.
-You only need to add carriers to the root, all children trace contexts inherit the information. You can
-retrieve the `CarrierMap` from any [`TraceContext`](../interfaces/index.TraceContext.html) object for use
+information passes via messaging or HTTP headers in the call to the create a context.
+All children trace contexts inherit the information. You can
+retrieve the `CarrierMap` from any [`TraceSpan`](../interfaces/index.TraceSpan.html) object for use
 across process or server boundaries. See the
 [API documentation](../modules/index.html) for more details.
 
 ```typescript
-// This creates a root context with name "root-context" and attributes foo="bar"...
-let rootContext = createRootTraceContext({name: 'root-context', attributes: {foo:'bar'}})
+// This creates a parent (root) context with name "root-span" and attributes foo="bar"...
+let parentSpan = getTrace('parent-span', { attributes: { foo:'bar' } })
 ```
 
-Child (or nested) contexts are created from the root context with
-[`rootContext.createchildtracecontext`](../interfaces/index.TraceContext.html#createchildtracecontext-1).
+Child (or nested/subsequent) spans are created from the parent span by calling with the parent object as an argument.
 More attributes can be added. The child will inherit the parent attributes.
 
 ```typescript
-// This creates a child context with name "child-context" and attributes meaning="42"...
-let childContext = rootContext.createchildtracecontext({name: 'child-context', attributes: {meaning: '42'}})
+// This creates a child context with name "child-span" and attributes meaning="42" with parent parentSpan...
+let childSpan = getTrace('child-span', { parentObject: parentSpan, attributes: { meaning: '42' } })
 ```
 
 The `end()` method ___MUST___ be called in order for the telementry to be sent. There are no destructors in Typescript
@@ -271,8 +270,7 @@ most if not all clients will share them. They are part of the minimum telemetry 
 `userId`, `clientSdkVersion`, `schemaVersion`, `sessionId`
 
 - `userId` will not be found with the other "resources" in the OTel output. Instead it it added to each event's
-  attributes. This is required since a session may transition from anonymous users to real users and "resources"
-  are fixed at OTel initialization.
+  or span's attributes. This is required since a session may transition from anonymous users to real users and "resources" are fixed at OTel initialization.
 - You will not see `sessionId` in the ResourceAttributes class even though it is a common attribute
 - This is because it is set by this package after the client is finished initializing
 - It is a result of hashing the SESSION_ENTROPY_VALUE_NAME value in the environment.

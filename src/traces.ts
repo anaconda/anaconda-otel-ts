@@ -3,7 +3,7 @@
 
 import * as fs from 'fs';
 
-import { type AttrMap, type CarrierMap, TraceArgs, type TraceContext } from './types.js'
+import { type AttrMap, type CarrierMap, TraceArgs, type TraceSpan } from './types.js'
 import { Configuration } from './config.js'
 import { ResourceAttributes } from './attributes.js'
 import { AnacondaCommon } from "./common.js"
@@ -47,7 +47,7 @@ type BatchSpanProcessor = _BatchSpanProcessor;
 type NodeTracerProvider = _NodeTracerProvider;
 type ChannelCredentials = _ChannelCredentials;
 
-export class TraceContextImpl implements TraceContext {
+export class TraceSpanImpl implements TraceSpan {
     readonly tracer: AnacondaTrace
     readonly ctx: Context;
     readonly span: Span;
@@ -63,15 +63,10 @@ export class TraceContextImpl implements TraceContext {
         return this
     }
 
-    createChildTraceContext(args: TraceArgs): TraceContext {
-        const attr = this.tracer.makeEventAttributes(args.attributes)
-        const childSpan = this.tracer.tracer.startSpan(args.name, { attributes: attr }, this.ctx)
-        const childCtx = trace.setSpan(this.ctx, childSpan)
-        return new TraceContextImpl(this.tracer, childCtx, childSpan)
-    }
-
-    inject(carrier: CarrierMap): void {
+    getCurrentCarrier(): CarrierMap {
+        let carrier: CarrierMap = {}
         propagation.inject(this.ctx, carrier)
+        return carrier
     }
 
     end(): void {
@@ -121,20 +116,22 @@ export class AnacondaTrace extends AnacondaCommon {
         return true
     }
 
-    createRootTraceContext(args: TraceArgs, carrier?: CarrierMap): TraceContext {
-        let rootCtx = carrier
-            ? propagation.extract(api.context.active(), carrier!)
-            : api.context.active()
-        rootCtx = this.embedUserIdIfMissing(rootCtx)
-        const rootSpan = this.tracer.startSpan(args.name, {
-                attributes: this.makeEventAttributes(args.attributes)
-            }, rootCtx)
-        const ctxWithSpan = trace.setSpan(rootCtx, rootSpan)
+    getTrace(name: string, attributes?: AttrMap, carrier?: CarrierMap, parentObject?: TraceSpan): TraceSpan {
+        let ctx
+        if (parentObject) { // Highest precidence if both this and carrier are passed
+            ctx = propagation.extract(api.context.active(), parentObject!.getCurrentCarrier())
+        } else if (carrier) { // Lowest precidence if both this and parentObject are passed.
+            ctx = propagation.extract(api.context.active(), carrier!)
+        } else {
+            ctx = api.context.active()
+        }
+        ctx = this.embedUserIdIfMissing(ctx)
+        const rootSpan = this.tracer.startSpan(name, {
+                attributes: this.makeEventAttributes(attributes)
+            }, ctx)
+        const ctxWithSpan = trace.setSpan(ctx, rootSpan)
 
-        const context = new TraceContextImpl(this, ctxWithSpan, rootSpan)
-        const c: CarrierMap = {}
-        context.inject(c)
-        return context
+        return new TraceSpanImpl(this, ctxWithSpan, rootSpan)
     }
 
     flush(): void {

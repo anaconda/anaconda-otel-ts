@@ -6,7 +6,7 @@ import { ResourceAttributes } from './attributes.js';
 import { AnacondaMetrics, CounterArgs, HistogramArgs } from './metrics.js';
 import { AnacondaTrace } from './traces.js';
 import { localTimeString as lts } from './common.js';
-import { type CarrierMap, type TraceContext, TraceArgs } from './types.js';
+import { type AttrMap, type CarrierMap, type TraceSpan, TraceArgs } from './types.js';
 
 import {
   __initialized,
@@ -203,30 +203,38 @@ export function decrementCounter(args: CounterArgs): boolean {
 }
 
 /**
- * Create the root tracing object (can create more than one) used to send trace events and create child
- * TraceContext objects. The object `end()` must be called before the trace span can be sent to the collector.
+ * Create the parent or child tracing span object (TraceSpan) used to send trace events. The object `end()`
+ * must be called before the trace span can be sent to the collector.
  *
- * @param args - Required: An argument list with a required `name` key (non-empty) for the trace span name, and
- *               optional `attributes` to set any user attributes on the trace span.
- * @param carrier - Optional: This is a OTel carrier that can be recieved via message or HTTP headers from another
- *                  process or source. If unsure don't include this argument.
+ * @param name - Name for the span object.
+ * @param args - Optional: Arguments for the function (see below)
+ * @param args.attributes - Attributes payload to attach to the trace span.
+ * @param args.carrier - This is a OTel carrier that can be recieved via message or HTTP headers from another
+ *                       process or source. If unsure don't include this argument. This is the parent when the
+ *                       parent is "remote" (i.e. client/server or across processes).
+ * @param args.parentObject - This is used as the parent for the new trace span like a carrier but in-process.
+ *
  * @remarks
  * This method does not throw any known exceptions.
  *
  * @example
  * ```typescript
- *      const ctx = createRootTraceContext({name: "myTraceSpanName"})
- *      ctx.addEvent({ name: "MyEventName", attributes: { foo: "bar" }})
- *      ctx.end()
+ *      const span = getTrace(name: "myTraceSpanName", {attributes: { feature: "makeMoney" }})
+ *      span.addEvent({ name: "MyEventName", attributes: { foo: "bar" }})
+ *      span.end()
  * ```
- * @returns The TraceContext object if successful, or undefined if not initialized.
+ * @returns The TraceSpan object if successful, or undefined if not initialized.
  */
-export function createRootTraceContext(args: TraceArgs, carrier: CarrierMap | undefined = undefined): TraceContext | undefined {
+export function getTrace(name: string, args: {
+    attributes?: AttrMap,
+    carrier?: CarrierMap,
+    parentObject?: TraceSpan
+} | undefined = undefined): TraceSpan | undefined {
     if (!__tracing) {
         console.warn("*** WARNING: Tracing is not initialized. Call initializeTelemetry first.")
         return undefined
     }
-    return __tracing.createRootTraceContext(args, carrier)
+    return __tracing.getTrace(name, args?.attributes, args?.carrier, args?.parentObject)
 }
 
 /**

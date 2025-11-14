@@ -37,7 +37,7 @@ export class TraceArgs {
 /**
  * This is the tracing context used for tracing both in and out of a process.
  */
-export interface TraceContext {
+export interface TraceSpan {
     /**
      * Sent a trace event in this context with the given name and attributes.
      *
@@ -55,34 +55,22 @@ export interface TraceContext {
     addEvent(name: string, attributes?: AttrMap): void;
 
     /**
-     * Create a new child TraceContext with the parent being this TraceContext.
-     *
-     * @param args - Required: An argument list with a required `name` key (non-empty) for
-     *               the trace span name, and optional `attributes` to set any user
-     *               attributes on the trace span.
-     *
-     * @remarks
-     *  No carrier is needed because this is based on the parent context. No known
-     *  exceptions are thrown.
-     */
-    createChildTraceContext(args: TraceArgs): TraceContext;
-
-    /**
-     * The method takes a CarrierMap object (empty) and populates it with the carrier
-     * for this context. This can be passed across process/host boundaries to continue
-     * the context (associate with) on a another process or host (client/server models).
+     * The method takes create a CarrierMap object (empty) and populates it with the carrier
+     * for this span. This can be passed across process/host boundaries to continue
+     * the span (associate with) on a another process or host (client/server models).
      *
      * @param carrier - Create an instance then pass into this method to populate it.
+     *
+     * @returns The current CarrierMap with the current context for this span object.
      *
      * @remarks
      * This method does not throw any known exceptions.
      *
      * @example
      * ```typescript
-     *      const ctx = createRootTraceContext({name: "myTraceSpanName"})
-     *      ctx.addEvent({ name: "MyEventName", attributes: { foo: "bar" }})
-     *      const carrier = {}
-     *      ctx.inject(carrier)
+     *      const span = getSpan(name: "myTraceSpanName")
+     *      span.addEvent({ name: "MyEventName", attributes: { foo: "bar" }})
+     *      const carrier = span.getCurrentSpan()
      *      // Send to remote server or across processes to continue sending event
      *      // for this context. You can still close it here as the other side will
      *      // have its own OTel objects that is must close. This allows for trace
@@ -90,7 +78,7 @@ export interface TraceContext {
      *      ctx.end()
      * ```
      */
-    inject(carrier: CarrierMap): void;
+    getCurrentCarrier(): CarrierMap;
 
     /**
      *  Calling this ends this context. Calling other methods on this object afterward
