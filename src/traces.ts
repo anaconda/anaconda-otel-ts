@@ -3,11 +3,10 @@
 
 import * as fs from 'fs';
 
-import { type AttrMap, type CarrierMap } from './types.js'
-import { Configuration, type EndpointTuple } from './config.js'
+import { type AttrMap, type CarrierMap, TraceArgs, type ASpan } from './types.js'
+import { Configuration } from './config.js'
 import { ResourceAttributes } from './attributes.js'
 import { AnacondaCommon } from "./common.js"
-import { __noopASpan } from './signals-state.js'
 import { SpanExporterShim } from './exporter_shims.js';
 
 // ----- values -----
@@ -25,8 +24,8 @@ const { ConsoleSpanExporter, BatchSpanProcessor } = sdkTraceBaseNS;
 import * as sdkTraceNodeNS from '@opentelemetry/sdk-trace-node';
 const { NodeTracerProvider } = sdkTraceNodeNS;
 
-import * as apiNS from '@opentelemetry/api';
-const { SpanStatusCode, trace } = apiNS;
+import * as api from '@opentelemetry/api';
+const { trace, propagation } = api;
 
 import grpc from '@grpc/grpc-js';
 const { ChannelCredentials } = grpc;
@@ -48,83 +47,45 @@ type BatchSpanProcessor = _BatchSpanProcessor;
 type NodeTracerProvider = _NodeTracerProvider;
 type ChannelCredentials = _ChannelCredentials;
 
-export class TraceArgs {
-    name: string = "";
-    attributes?: AttrMap = {};
-    carrier?: CarrierMap = {};
-}
-
-/**
- * Represents a span in a tracing system, providing methods to record events, exceptions, errors, and attributes.
- *
- * @remarks
- * This interface is typically used to instrument code for distributed tracing, allowing you to annotate spans with additional information.
- */
-export interface ASpan {
-    /**
-     * Adds an event with the specified name and optional attributes.
-     *
-     * @param name - The name of the event to add.
-     * @param attributes - Optional key-value pairs providing additional information about the event.
-     */
-    addEvent(name: string, attributes?: AttrMap): void;
-
-    /**
-     * Adds an exception to the current context.
-     *
-     * @param exception - The error object to be added as an exception.
-     */
-    addException(exception: Error): void;
-
-    /**
-     * Sets the error status for the current signal.
-     *
-     * @param msg - Optional error message describing the reason for the error status.
-     */
-    setErrorStatus(msg?: string): void;
-
-    /**
-     * Adds the specified attributes to the current object.
-     *
-     * @param attributes - A record containing key-value pairs of attributes to add.
-     */
-    addAttributes(attributes: AttrMap): void;
-}
-
 export class ASpanImpl implements ASpan {
-    private span: Span
-    private common: AnacondaCommon
+    readonly tracer: AnacondaTrace
+    readonly ctx: Context;
+    readonly span: Span;
 
-    constructor(span: Span, parent: AnacondaCommon) {
+    constructor(tracer: AnacondaTrace, ctx: Context, span: Span) {
+        this.tracer = tracer
+        this.ctx = ctx
         this.span = span
-        this.common = parent
-        this.span.setStatus({code: SpanStatusCode.OK, message: ""})
     }
 
-    addEvent(name: string, attributes: AttrMap): void {
-        this.span.addEvent(name, this.common.makeEventAttributes(attributes))
+    addEvent(name: string, attributes: AttrMap = {}): this {
+        this.span.addEvent(name, attributes)
+        return this
     }
 
-    addException(exception: Error): void {
-        this.span.recordException(exception)
+    getCurrentCarrier(): CarrierMap {
+        let carrier: CarrierMap = {}
+        propagation.inject(this.ctx, carrier)
+        return carrier
     }
 
-    setErrorStatus(msg?: string): void {
-        this.span.setStatus({code: SpanStatusCode.ERROR, message: "The trace code block recorded an error."})
-    }
-
-    addAttributes(attributes: AttrMap): void {
-        for (let key of Object.keys(attributes)) {
-            this.span.setAttribute(key, attributes[key])
-        }
+    end(): void {
+        this.span.end();
     }
 }
 
 export class AnacondaTrace extends AnacondaCommon {
     provider: NodeTracerProvider | null = null
     private processor: BatchSpanProcessor | undefined
-    private depth: number = 0
-    parentExporter:SpanExporterShim | undefined
+    private _tracer: api.Tracer | undefined
+    parentExporter: SpanExporterShim | undefined
+
+    get tracer(): api.Tracer {
+        if (this._tracer === undefined) {
+            this._tracer = trace.getTracer(this.serviceName, this.serviceVersion)
+        }
+        return this._tracer!
+    }
 
     constructor(config: Configuration, attributes: ResourceAttributes) {
         super(config, attributes)
@@ -155,38 +116,43 @@ export class AnacondaTrace extends AnacondaCommon {
         return true
     }
 
-    traceBlock(args: TraceArgs, block: (span: ASpan) => void): void {
-        if (!this.isValidName(args.name)) {
-            throw Error(`Trace name '${args.name}' is not a valid name (^[A-Za-z][A-Za-z_0-9]+$).`)
+    getTrace(name: string, attributes?: AttrMap, carrier?: CarrierMap, parentObject?: ASpan): ASpan {
+        let ctx
+        if (parentObject) { // Highest precidence if both this and carrier are passed
+            ctx = propagation.extract(api.context.active(), parentObject!.getCurrentCarrier())
+        } else if (carrier) { // Lowest precidence if both this and parentObject are passed.
+            ctx = propagation.extract(api.context.active(), carrier!)
+        } else {
+            ctx = api.context.active()
         }
-        const tracer = trace.getTracer(this.serviceName, this.serviceVersion);
-        const context: Context = this.convertToContext(args.carrier!)
-        const span = tracer.startSpan(args.name, undefined, context)
-        this.depth++
-        for (let key of Object.keys(args.attributes ? args.attributes : {})) {
-            span.setAttribute(key, args.attributes![key])
-        }
-        block(new ASpanImpl(span, this))
-        span.end()
-        this.depth--
-        this.provider!.forceFlush()
+        ctx = this.embedUserIdIfMissing(ctx)
+        const rootSpan = this.tracer.startSpan(name, {
+                attributes: this.makeEventAttributes(attributes)
+            }, ctx)
+        const ctxWithSpan = trace.setSpan(ctx, rootSpan)
+
+        return new ASpanImpl(this, ctxWithSpan, rootSpan)
     }
 
-    async traceBlockAsync(args: TraceArgs, block: (span: ASpan) => Promise<void>): Promise<void> {
-        if (!this.isValidName(args.name)) {
-            throw Error(`Trace name '${args.name}' is not a valid name (^[A-Za-z][A-Za-z_0-9]+$).`)
+    flush(): void {
+        this.processor?.forceFlush()
+    }
+
+    private embedUserIdIfMissing(ctx: Context): Context {
+        const currentBaggage = propagation.getBaggage(ctx)
+        if (currentBaggage?.getEntry("user.id")?.value) {
+            return ctx
         }
-        const tracer = trace.getTracer(this.serviceName, this.serviceVersion);
-        const context: Context = this.convertToContext(args.carrier!)
-        const span = tracer.startSpan(args.name, undefined, context)
-        this.depth++
-        for (let key of Object.keys(args.attributes ? args.attributes : {})) {
-            span.setAttribute(key, args.attributes![key])
+        if (this.attributes.userId === "") {
+            return ctx
         }
-        block(new ASpanImpl(span, this))
-        span.end()
-        this.depth--
-        await this.provider!.forceFlush()
+        let newBaggage: api.Baggage
+        if (currentBaggage) {
+            newBaggage = currentBaggage.setEntry("user.id", { value: this.attributes.userId })
+        } else {
+            newBaggage = propagation.createBaggage({ "user.id": { value: this.attributes.userId }})
+        }
+        return propagation.setBaggage(ctx, newBaggage)
     }
 
     private makeExporter(scheme: string, url: URL, httpHeaders: Record<string,string>,
@@ -222,7 +188,9 @@ export class AnacondaTrace extends AnacondaCommon {
             return undefined
         }
         this.parentExporter = new SpanExporterShim(exporter!)
-        return new BatchSpanProcessor(this.parentExporter!)
+        return new BatchSpanProcessor(this.parentExporter!, {
+            scheduledDelayMillis: this.config.getTracesExportIntervalMs()
+        })
     }
 
     readCredentials(scheme: string, certFile?: string): ChannelCredentials | undefined {
@@ -259,32 +227,8 @@ export class AnacondaTrace extends AnacondaCommon {
             })
             this.provider!.register()
         } else {
-
+            console.warn('Failed to create a batch processor for tracing!')
         }
-    }
-
-    private convertToContext(carrier: CarrierMap): Context {
-        return new LocalContext(carrier)
-    }
-}
-
-export class LocalContext implements Context {
-    map: Record<symbol, unknown> = {}
-    constructor(carrier: CarrierMap) {
-        for (let key of Object.keys(carrier ? carrier : {})) {
-            this.map[Symbol(key)] = carrier[key]
-        }
-    }
-    getValue(key: symbol): unknown {
-        return this.map[key]
-    }
-    setValue(key: symbol, value: unknown): Context {
-        this.map[key] = value
-        return this
-    }
-    deleteValue(key: symbol): Context {
-        delete this.map[key]
-        return this
     }
 }
 

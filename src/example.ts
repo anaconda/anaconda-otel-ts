@@ -10,58 +10,63 @@ import {
     initializeTelemetry,
     recordHistogram,
     ResourceAttributes,
-    traceBlockAsync,
+    changeSignalConnection,
+    getTrace,
+    flushAllSignals,
     type ASpan
 } from "./index.js"
-import { changeSignalConnection } from "./signals.js"
-
-async function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 async function main() {
     const config = new Configuration(new URL("devnull:")) // NOTE: devnull is a No-Op exporter.
-        .setMetricExportIntervalMs(100)
+        .setMetricExportIntervalMs(1000)
+        .setTraceExportIntervalMs(1000)
         .setTraceEndpoint(new URL("http://localhost:6318/v1/traces"))
         .setMetricsEndpoint(new URL("http://localhost:6318/v1/metrics"))
-    const res = new ResourceAttributes("test_aotel", "1.2.3").setAttributes({foo: "test"})
+    const res = new ResourceAttributes("test_aotel", "1.2.3")
+        .setAttributes({foo: "test", userId: "exampleUser"})
 
-    initializeTelemetry(config, res, ["metrics", "tracing"])
+    initializeTelemetry(config, res, [/*"metrics",*/ "tracing"])
     console.log("=== Running...EP #1")
-    await traceBlockAsync({name: "topLevel", attributes: {"someKey": "someValue"}}, async (span: ASpan) => {
-        recordHistogram({name: "myValue", value: 42})
-        incrementCounter({name: "feature1"})
-        await sleep(150)
+    let parent = getTrace("topLevel")!
+    // recordHistogram({name: "myValue", value: 42})
+    // incrementCounter({name: "feature1"})
 
-        span.addEvent("Event1")
+    parent.addEvent("Event1")
 
-        incrementCounter({name: "feature1"})
-        incrementCounter({name: "feature2"})
-        await sleep(150)
-        span.addEvent("Event2")
+    let child = getTrace("child", { parentObject: parent })!
+    child.addEvent("child.event.1")
+    child.addEvent("child.event.3")
+    child.addEvent("child.event.2")
+    child.end()
 
-        decrementCounter({name: "feature1", by: 2})
-    })
-    await sleep(2500)
+    // incrementCounter({name: "feature1"})
+    // incrementCounter({name: "feature2"})
+    parent.addEvent("Event2")
+
+    // decrementCounter({name: "feature1", by: 2})
+
     console.log("=== Switching to EP #2.")
-    await changeSignalConnection("metrics", new URL("http://localhost:5318/v1/metrics"))
-    await changeSignalConnection("tracing", new URL("http://localhost:5318/v1/traces"))
+    await changeSignalConnection("tracing", { endpoint: new URL("http://localhost:5318/v1/traces") })
+    await changeSignalConnection("metrics", { endpoint: new URL("http://localhost:5318/v1/metrics") })
     console.log("=== Running...EP #2")
-    await traceBlockAsync({name: "newTopLevel", attributes: {"someNewKey": "someNewValue"}}, async (span: ASpan) => {
-        recordHistogram({name: "myValue2", value: 42})
-        incrementCounter({name: "new_feature1"})
-        await sleep(150)
 
-        span.addEvent("newEvent1")
+    // recordHistogram({name: "myValue2", value: 42})
+    // incrementCounter({name: "new_feature1"})
 
-        incrementCounter({name: "new_feature1"})
-        incrementCounter({name: "new_feature2"})
-        await sleep(150)
-        span.addEvent("newEvent2")
+    parent.addEvent("newEvent1")
+    child = getTrace("newChild", { parentObject: parent })!
+    child.addEvent("newChild.event.1")
+    child.addEvent("newChild.event.2")
+    child.end()
 
-        decrementCounter({name: "new_feature1", by: 2})
-    })
-    await sleep(1000)
+    // incrementCounter({name: "new_feature1"})
+    // incrementCounter({name: "new_feature2"})
+    parent.addEvent("newEvent2")
+
+    // decrementCounter({name: "new_feature1", by: 2})
+
+    parent.end()
+    flushAllSignals()
     console.log("=== Done.")
 }
 

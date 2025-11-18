@@ -4,14 +4,14 @@
 import { Configuration } from './config.js';
 import { ResourceAttributes } from './attributes.js';
 import { AnacondaMetrics, CounterArgs, HistogramArgs } from './metrics.js';
-import { AnacondaTrace, type ASpan, TraceArgs } from './traces.js';
+import { AnacondaTrace } from './traces.js';
 import { localTimeString as lts } from './common.js';
+import { type AttrMap, type CarrierMap, type ASpan, TraceArgs } from './types.js';
 
 import {
   __initialized,
   __metrics,
   __tracing,
-  __noopASpan,
   __setInitialized,
   __setMetrics,
   __setTracing,
@@ -72,9 +72,10 @@ export function initializeTelemetry(config: Configuration,
  * Function used to change the endpoint or authorization token or both for a signal type.
  *
  * @param signal - Either 'metrics' or 'tracing' to select which connection to change.
- * @param endpoint - The optional new endpoint for the specific signal.
- * @param authToken - The optional new authorization token for the connection to use.
- * @param certFile - The optional certificate file for mTLS.
+ * @param args - Arguments object of possible connection changes. Must have ___at least___ one that is defined.
+ * @param args.endpoint - The new endpoint for the specific signal.
+ * @param args.authToken - The new authorization token for the connection to use.
+ * @param args.certFile - The certificate file for mTLS.
  *
  * @returns - true if successful, false if it failed.
  *
@@ -84,16 +85,21 @@ export function initializeTelemetry(config: Configuration,
  *      * Order of other telemetry may be different than expected.
  *  - This method does not throw.
  */
-export async function changeSignalConnection(signal: Signal, endpoint: URL | undefined,
-                                             authToken: string | undefined = undefined,
-                                             certFile: string | undefined = undefined): Promise<boolean> {
+export async function changeSignalConnection(signal: Signal, args:
+     {  endpoint?: URL,
+        authToken?: string,
+        certFile?: string
+    }): Promise<boolean> {
     if (!__initialized) {
         return false
     }
+    if (args.endpoint === undefined && args.authToken === undefined && args.certFile === undefined) {
+        return false
+    }
     if (signal === 'metrics') {
-        return await __metrics?.changeConnection(endpoint, authToken, certFile) ?? false
+        return await __metrics?.changeConnection(args.endpoint, args.authToken, args.certFile) ?? false
     } else {
-        return await __tracing?.changeConnection(endpoint, authToken, certFile) ?? false
+        return await __tracing?.changeConnection(args.endpoint, args.authToken, args.certFile) ?? false
     }
 }
 
@@ -197,97 +203,48 @@ export function decrementCounter(args: CounterArgs): boolean {
 }
 
 /**
- * Executes a block of code (async) within a tracing context, optionally attaching
- * attributes and a carrier.
+ * Create the parent or child tracing span object (ASpan) used to send trace events. The object `end()`
+ * must be called before the trace span can be sent to the collector.
  *
- * @param args - An argument list object where the `name` field is required.
- *
- * The args is an object defined by (in any order):
- *
- * ```
- * {
- *   name: string = "";  Required; Not supplying a name will result in no value being recorded.
- *   attributes?: AttrMap = {}; Optional; Attributes for the counter metric.
- *   carrier?: CarrierMap = {}; Optional; Used to create a context for the trace block.
- * }
- * ```
+ * @param name - Name for the span object.
+ * @param args - Optional: Arguments for the function (see below)
+ * @param args.attributes - Attributes payload to attach to the trace span.
+ * @param args.carrier - This is a OTel carrier that can be recieved via message or HTTP headers from another
+ *                       process or source. If unsure don't include this argument. This is the parent when the
+ *                       parent is "remote" (i.e. client/server or across processes).
+ * @param args.parentObject - This is used as the parent for the new trace span like a carrier but in-process.
  *
  * @remarks
- * - If tracing is not initialized, a warning is logged and the block is executed with a no-op span.
- * - ___IMPORTANT___: Calling `reinitializeTelemetry` from within a traceBlock will result in an
- *   exception (Error) being thrown!
- * - This call should be awaited and the code block will be async.
+ * This method does not throw any known exceptions.
  *
  * @example
  * ```typescript
- * await traceBlock({name: "myTraceBlock", attributes: { key: "value" }}) { aspan =>
- *     aspan.addAttributes({ additional: "attributes" });
- *     // do some async code here with awaits...
- *
- *     aspan.addEvent("eventName", { "attr": "value" });
- *
- *     // do some more code with awaits...
- *
- *     aspan.addException(new Error("An error occurred"));
- *     aspan.setErrorStatus("An error occurred");
- *
- *     // finish the code block
- * })
+ *      const span = getTrace(name: "mySpanName", {attributes: { feature: "makeMoney" }})
+ *      span.addEvent({ name: "MyEventName", attributes: { foo: "bar" }})
+ *      span.end()
  * ```
+ * @returns The ASpan object if successful, or undefined if not initialized.
  */
-export async function traceBlockAsync(args: TraceArgs, block: (aspan: ASpan) => Promise<void>): Promise<void> {
+export function getTrace(name: string, args: {
+    attributes?: AttrMap,
+    carrier?: CarrierMap,
+    parentObject?: ASpan
+} | undefined = undefined): ASpan | undefined {
     if (!__tracing) {
-        console.warn("*** WARNING: Tracing not initialized. Call initializeTelemetry with 'tracing' signal type first.");
-        await block(__noopASpan); // Call the block with undefined to maintain API consistency
-        return
+        console.warn("*** WARNING: Tracing is not initialized. Call initializeTelemetry first.")
+        return undefined
     }
-    return await __tracing.traceBlockAsync(args, block); // Call the traceBlock method on the AnacondaTrace instance
+    return __tracing.getTrace(name, args?.attributes, args?.carrier, args?.parentObject)
 }
 
 /**
- * Executes a block of code (async) within a tracing context, optionally attaching
- * attributes and a carrier.
- *
- * @param args - An argument list object where the `name` field is required.
- *
- * The args is an object defined by (in any order):
- *
- * ```
- * {
- *   name: string = "";  Required; Not supplying a name will result in no value being recorded.
- *   attributes?: AttrMap = {}; Optional; Attributes for the counter metric.
- *   carrier?: CarrierMap = {}; Optional; Used to create a context for the trace block.
- * }
- * ```
+ * This method will ignore any export time intervals and will immediatly flush cached data in memory
+ * to the collector. Use sparingly but ALWAYS use it before your application exits.
  *
  * @remarks
- * - If tracing is not initialized, a warning is logged and the block is executed with a no-op span.
- * - ___IMPORTANT___: Calling `reinitializeTelemetry` from within a traceBlock will result in an
- *   exception (Error) being thrown!
- * - This call should be awaited and the code block will be async.
- *
- * @example
- * ```typescript
- * await traceBlock({name: "myTraceBlock", attributes: { key: "value" }}) { aspan =>
- *     aspan.addAttributes({ additional: "attributes" });
- *     // do some async code here with awaits...
- *
- *     aspan.addEvent("eventName", { "attr": "value" });
- *
- *     // do some more code with awaits...
- *
- *     aspan.addException(new Error("An error occurred"));
- *     aspan.setErrorStatus("An error occurred");
- *
- *     // finish the code block
- * })
- * ```
+ * This method does not throw any known exceptions.
  */
-export function traceBlock(args: TraceArgs, block: (aspan: ASpan) => void): void {
-    if (!__tracing) {
-        console.warn("*** WARNING: Tracing not initialized. Call initializeTelemetry with 'tracing' signal type first.");
-        block(__noopASpan); // Call the block with undefined to maintain API consistency
-        return
-    }
-    return __tracing.traceBlock(args, block); // Call the traceBlock method on the AnacondaTrace instance
+export function flushAllSignals(): void {
+    __tracing?.flush()
+    __metrics?.flush()
 }
