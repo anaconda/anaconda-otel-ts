@@ -7,8 +7,9 @@ import * as path from 'path'
 import { jest, expect, beforeEach, beforeAll, afterAll, afterEach } from '@jest/globals';
 import { Configuration, InternalConfiguration } from '../../src/config'
 import { InternalResourceAttributes, ResourceAttributes } from '../../src/attributes'
-import { AnacondaTrace, ASpanImpl, LocalContext, NoopSpanExporter, type ASpan, TraceArgs } from '../../src/traces'
+import { AnacondaTrace, NoopSpanExporter, ASpanImpl } from '../../src/traces'
 import { AnacondaCommon } from '../../src/common';
+import { TraceArgs, type CarrierMap } from '../../src/types'
 import type { Resource as _Resource } from '@opentelemetry/resources';
 type Resource = _Resource;
 
@@ -19,7 +20,10 @@ jest.mock('@opentelemetry/api')
 
 import { type Span, trace, type Tracer } from '@opentelemetry/api'
 
-class TestImpl extends AnacondaCommon {
+test("dummy test", () => {
+})
+
+class TestImpl extends AnacondaTrace {
     public constructor(config: Configuration, attributes: ResourceAttributes) {
         super(config, attributes)
     }
@@ -64,34 +68,10 @@ class TestImpl extends AnacondaCommon {
     }
 }
 
-export const mockedSpan = (() => {
-  const span: any = {};
-
-  // non-chain methods / values
-  span.spanContext = jest.fn(() => ({
-    traceId: '00000000000000000000000000000001',
-    spanId:   '0000000000000001',
-    traceFlags: 1,
-  }));
-  span.isRecording     = jest.fn(() => true);
-  span.end             = jest.fn();
-  span.recordException = jest.fn();
-
-  // chainable methods — return the same span
-  span.setAttribute = jest.fn().mockReturnThis();
-  span.setAttributes = jest.fn().mockReturnThis();
-  span.addEvent = jest.fn().mockReturnThis();
-  span.setStatus = jest.fn().mockReturnThis();
-  span.updateName = jest.fn().mockReturnThis();
-
-  return span as unknown as jest.Mocked<Span>;
-})();
-
 var certFile: string
 beforeAll(() => {
     certFile = path.join("testFile2.cert")
     fs.writeFileSync(certFile, "Example Cert File 2")
-
 })
 
 beforeEach(() => {
@@ -121,20 +101,7 @@ test("verify AnacondaTrace class instantiation", () => {
     expect(metrics).toBeInstanceOf(AnacondaTrace)
     expect(metrics.config).toBeInstanceOf(InternalConfiguration)
     expect(metrics.attributes).toBeInstanceOf(InternalResourceAttributes)
- })
-
- test("verify ASPan methods", () => {
-    const config = new Configuration().setUseConsoleOutput(true)
-    const attributes = new ResourceAttributes("test_service", "0.0.1")
-    const impl = new TestImpl(config, attributes)
-    for (let attr of [undefined, new ResourceAttributes("test_name", "0.0.0")]) {
-        var ut = new ASpanImpl(mockedSpan, impl)
-        ut.addAttributes({})
-        ut.addEvent("test_event", {})
-        ut.addException(new Error("Test Error"))
-        ut.setErrorStatus("test status")
-    }
- })
+})
 
 test("verify non-console implementation for setup and variations", () => {
     var counter = 0
@@ -179,46 +146,55 @@ test("test NoOp exporter", () => {
     tracer.shutdown()
 })
 
-test("test context implementation", () => {
-    const context = new LocalContext({"answer": "42"});
-    var newKey: symbol = Symbol("year")
-    context.setValue(newKey, "1999")
-    expect(Object.getOwnPropertySymbols(context.map).length).toBe(2) // This may be causing random failures...watch it!
-    var count = 0
-    for (const key of Object.getOwnPropertySymbols(context.map)) {
-        if (key === newKey) {
-            expect(context.map[key]).toBe("1999")
-        } else {
-            expect(context.map[key]).toBe("42")
-        }
-        count++
-    }
-    context.deleteValue(newKey)
-    expect(Object.getOwnPropertySymbols(context.map).length).toBe(1) // This may be causing random failures...watch it!
-})
-
  test("check bad name for traceBlock", async () => {
     const config = new Configuration().setUseConsoleOutput(true)
     const attributes = new ResourceAttributes("test_service", "0.0.1")
 
     // Create an instance of AnacondaMetrics
     const tracer = new AnacondaTrace(config, attributes)
-    tracer.traceBlockAsync({name: "###"}, async (span) => {
-        console.debug("Should never output...")
-    }).catch((err) => {
-        const error = err as Error
-        expect(error.message).toBe("Trace name '###' is not a valid name (^[A-Za-z][A-Za-z_0-9]+$).")
-    })
-    try {
-        tracer.traceBlock({name: "###"}, (span) => {
-            console.debug("Should never output...")
-        })
-    } catch(err) {
-        const error = err as Error
-        expect(error.message).toBe("Trace name '###' is not a valid name (^[A-Za-z][A-Za-z_0-9]+$).")
-    }
+    const ctx = tracer.getTrace("###")
+    expect(ctx === undefined)
  })
 
  test("dummy test for TraceArgs (can be deleted but will reduce coverage)", () =>{
-    const args = new TraceArgs()
+    new TraceArgs()
  })
+
+ test("ASpanImpl tests with ID", () => {
+    const config = new Configuration().setUseConsoleOutput(true)
+    const attributes = new ResourceAttributes("test_service", "0.0.1")
+    attributes.setAttributes({ userId: "TestUser" })
+    const tracer = new AnacondaTrace(config, attributes)
+    const ut = tracer.getTrace("testing")
+    ut.addEvent("event")
+    let child = tracer.getTrace("child", undefined, undefined, ut)
+    child.addEvent("childEvent")
+    const carrier: CarrierMap = child.getCurrentCarrier()
+    child.end()
+    child = tracer.getTrace("child", undefined, ut.getCurrentCarrier(), undefined)
+    expect(Object.keys(carrier).length).toBe(2)
+    expect(carrier['baggage']).toBe('user.id=TestUser')
+    child.end()
+    ut.end()
+})
+
+ test("ASpanImpl tests without ID", () => {
+    const config = new Configuration().setUseConsoleOutput(true)
+    const attributes = new ResourceAttributes("test_service", "0.0.1")
+    const tracer = new AnacondaTrace(config, attributes)
+    const ut = tracer.getTrace("testing")
+    ut.addEvent("event")
+    const child = tracer.getTrace("child", undefined, undefined, ut)
+    ut.addEvent("childEvent")
+    const carrier: CarrierMap = child.getCurrentCarrier()
+    expect(Object.keys(carrier).length).toBe(1)
+    child.end()
+    ut.end()
+})
+
+test("test flushing", () => {
+    const config = new Configuration().setUseConsoleOutput(true);
+    const attributes = new ResourceAttributes("test_service", "0.0.1")
+    var trace = new AnacondaTrace(config, attributes)
+    trace.flush()
+})

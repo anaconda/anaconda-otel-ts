@@ -10,17 +10,16 @@ import {
     recordHistogram,
     decrementCounter,
     incrementCounter,
-    traceBlock,
-    traceBlockAsync
+    getTrace,
+    flushAllSignals
 } from '../../src/signals'
 import {
     __resetSignals,
     __initialized,
     __metrics,
-    __tracing,
-    __noopASpan
+    __tracing
 } from '../../src/testing-signals.js';
-import { type ASpan } from '../../src/traces'
+import { type ASpan } from '../../src/types';
 
 beforeEach(() => {
     jest.clearAllMocks()
@@ -44,7 +43,7 @@ test("initializeTelemetry with metrics only", async () => {
     const attributes = new ResourceAttributes("test_service", "0.0.1")
 
     initializeTelemetry(config, attributes, ["metrics"])
-    expect(await changeSignalConnection("tracing", new URL("devnull:"))).toBe(false)
+    expect(await changeSignalConnection("tracing", { endpoint: new URL("devnull:") })).toBe(false)
 
     expect(__initialized).toBe(true)
     expect(__metrics).toBeDefined()
@@ -67,7 +66,7 @@ test("initializeTelemetry with traces only", async () => {
     const attributes = new ResourceAttributes("test_service", "0.0.1")
 
     initializeTelemetry(config, attributes, ["tracing"])
-    expect(await changeSignalConnection("metrics", new URL("devnull:"))).toBe(false)
+    expect(await changeSignalConnection("metrics", { endpoint: new URL("devnull:") })).toBe(false)
 
     expect(__initialized).toBe(true)
     expect(__metrics).toBeUndefined()
@@ -176,47 +175,23 @@ test("decrementCounter without metrics initialized", () => {
     expect(console.warn).toHaveBeenCalledWith("*** WARNING: Metrics not initialized. Call initializeTelemetry first.")
 })
 
-test("traceBlock with tracing initialized", async () => {
+test("createRootASpan with tracing initialized", async () => {
     const config = new Configuration().setUseConsoleOutput(true)
     const attributes = new ResourceAttributes("test_service", "0.0.1")
 
     initializeTelemetry(config, attributes, ["tracing"])
-    await traceBlockAsync({name: "test_trace", attributes: { "key": "value" }}, async (aspan: ASpan) => {
-        aspan.addAttributes({ key: "value" })
-        expect(console.warn).not.toHaveBeenCalledWith("*** Tracing not initialized. Call initializeTelemetry with 'tracing' signal type first.")
-    })
-    traceBlock({name: "test_trace", attributes: { "key": "value" }}, (aspan: ASpan) => {
-        aspan.addAttributes({ key: "value" })
-        expect(console.warn).not.toHaveBeenCalledWith("*** Tracing not initialized. Call initializeTelemetry with 'tracing' signal type first.")
-    })
+    let ctx = getTrace("test_trace", { attributes: { "key": "value" }})
+    ctx?.addEvent("event", { key: "value" })
+    expect(console.warn).not.toHaveBeenCalledWith("*** Tracing not initialized. Call initializeTelemetry with 'tracing' signal type first.")
 })
 
-test("traceBlock without tracing initialized", async () => {
-    const mockBlock = jest.fn((aspan: ASpan) => {
-        aspan.addAttributes({ key: "value" })
-    })
-
-    traceBlock({name: "test_trace"}, mockBlock)
-    expect(mockBlock).toHaveBeenCalled()
-    expect(console.warn).toHaveBeenCalledWith("*** WARNING: Tracing not initialized. Call initializeTelemetry with 'tracing' signal type first.")
-
-    await traceBlockAsync({name: "test_trace"}, async (aspan: ASpan) => {
-        expect(console.warn).toHaveBeenCalledWith("*** WARNING: Tracing not initialized. Call initializeTelemetry with 'tracing' signal type first.")
-    })
+test("createRootASpan without tracing initialized", async () => {
+    let ctx = getTrace("test_trace", { attributes: { "key": "value" }})
+    expect(console.warn).toHaveBeenCalledWith("*** WARNING: Tracing is not initialized. Call initializeTelemetry first.")
 })
 
-test("traceBlock with noop span when tracing not initialized", () => {
-    const mockBlock = jest.fn((aspan: ASpan) => {
-        aspan.addAttributes({ key: "value" })
-        aspan.addEvent("test_event", { attr: "value" })
-        aspan.addException(new Error("Test error"))
-        aspan.setErrorStatus("Test error status")
-    })
-
-    traceBlock({name: "test_trace"}, mockBlock)
-
-    expect(mockBlock).toHaveBeenCalledWith(__noopASpan)
-    expect(console.warn).toHaveBeenCalledWith("*** WARNING: Tracing not initialized. Call initializeTelemetry with 'tracing' signal type first.")
+test("flushAllSignals called", () => {
+    flushAllSignals()
 })
 
 test("changeSignalConnection for metrics and tracing", async () => {
@@ -224,6 +199,10 @@ test("changeSignalConnection for metrics and tracing", async () => {
         .setMetricsEndpoint(new URL("console:"))
         .setTraceEndpoint(new URL("console:"))
     const attributes = new ResourceAttributes("test_service", "0.0.1")
+
+    // Before Init
+    const before = await changeSignalConnection("metrics", { endpoint: new URL("devnull:") })
+    expect(before).toBe(false)
 
     initializeTelemetry(config, attributes, ["metrics", "tracing"])
 
@@ -240,15 +219,15 @@ test("changeSignalConnection for metrics and tracing", async () => {
     expect(metricsFile).toBeUndefined()
     expect(tracingFile).toBeUndefined()
 
-    await changeSignalConnection("metrics", new URL("devnull:"))
-    await changeSignalConnection("tracing", new URL("devnull:"))
+    await changeSignalConnection("metrics", { endpoint: new URL("devnull:") })
+    await changeSignalConnection("tracing", { endpoint: new URL("devnull:") })
     metricsUrl = __metrics?.config.getMetricsEndpointTuple()[0]
     tracingUrl = __tracing?.config.getTraceEndpointTuple()[0]
     expect(metricsUrl?.href).toBe("devnull:")
     expect(tracingUrl?.href).toBe("devnull:")
 
-    await changeSignalConnection("metrics", undefined, "newAuth1")
-    await changeSignalConnection("tracing", undefined, "newAuth2")
+    await changeSignalConnection("metrics", { authToken: "newAuth1" })
+    await changeSignalConnection("tracing", { authToken: "newAuth2" })
     metricsUrl = __metrics?.config.getMetricsEndpointTuple()[0]
     tracingUrl = __tracing?.config.getTraceEndpointTuple()[0]
     metricsToken = __metrics?.config.getMetricsEndpointTuple()[1]
@@ -258,8 +237,8 @@ test("changeSignalConnection for metrics and tracing", async () => {
     expect(metricsToken).toBe("newAuth1")
     expect(tracingToken).toBe("newAuth2")
 
-    await changeSignalConnection("metrics", undefined, undefined, "/tmp/file1")
-    await changeSignalConnection("tracing", undefined, undefined, "/tmp/file2")
+    await changeSignalConnection("metrics", { certFile: "/tmp/file1" })
+    await changeSignalConnection("tracing", { certFile: "/tmp/file2" })
     metricsUrl = __metrics?.config.getMetricsEndpointTuple()[0]
     tracingUrl = __tracing?.config.getTraceEndpointTuple()[0]
     metricsToken = __metrics?.config.getMetricsEndpointTuple()[1]
@@ -273,6 +252,8 @@ test("changeSignalConnection for metrics and tracing", async () => {
     expect(metricsFile).toBe("/tmp/file1")
     expect(tracingFile).toBe("/tmp/file2")
 
-    expect(await changeSignalConnection("metrics", new URL("file:///tmp/file1"))).toBe(false)
-    expect(await changeSignalConnection("tracing", new URL("file:///tmp/file1"))).toBe(false)
+    expect(await changeSignalConnection("metrics", { endpoint: new URL("file:///tmp/file1") })).toBe(false)
+    expect(await changeSignalConnection("tracing", { endpoint: new URL("file:///tmp/file1") })).toBe(false)
+
+    expect(await changeSignalConnection("metrics", { })).toBe(false)
 })

@@ -24,6 +24,7 @@ beforeEach(() => {
     process.env.ATEL_TRACE_AUTH_TOKEN = undefined
     process.env.ATEL_TRACE_TLS_PRIVATE_CA_CERT_FILE = undefined
     process.env.ATEL_METRICS_EXPORT_INTERVAL_MS = undefined
+    process.env.ATEL_TRACES_EXPORT_INTERVAL_MS = undefined
     process.env.ATEL_SKIP_INTERNET_CHECK = undefined
     process.env.ATEL_TRACING_SESSION_ENTROPY = undefined
     process.env.ATEL_USE_DEBUG = undefined
@@ -209,10 +210,20 @@ test("Verify the export interval value", () => {
     expect(() => {
         configure.setMetricExportIntervalMs(50)
     }).toThrow("*** Metric export interval must be at least 100ms")
+    expect(impl.getTracesExportIntervalMs()).toBe(60000)
+    expect(() => {
+        configure.setTraceExportIntervalMs(50)
+    }).toThrow("*** Trace export interval must be at least 100ms")
     configure.setMetricExportIntervalMs(1000)
     expect(impl.getMetricsExportIntervalMs()).toBe(1000)
     configure.setMetricExportIntervalMs(5000)
     expect(impl.getMetricsExportIntervalMs()).toBe(5000)
+
+    configure.setTraceExportIntervalMs(1000)
+    expect(impl.getTracesExportIntervalMs()).toBe(1000)
+    configure.setTraceExportIntervalMs(5000)
+    expect(impl.getTracesExportIntervalMs()).toBe(5000)
+
     process.env.ATEL_METRICS_EXPORT_INTERVAL_MS = "2000"
     configure = new Configuration()
     impl = toImpl(configure)
@@ -224,6 +235,18 @@ test("Verify the export interval value", () => {
     impl = toImpl(configure)
     expect(impl).toBeDefined()
     expect(impl.getMetricsExportIntervalMs()).toBe(5000)
+
+    process.env.ATEL_TRACES_EXPORT_INTERVAL_MS = "2000"
+    configure = new Configuration()
+    impl = toImpl(configure)
+    expect(impl).toBeDefined()
+    expect(impl.getTracesExportIntervalMs()).toBe(2000)
+
+    process.env.ATEL_TRACES_EXPORT_INTERVAL_MS = "500"
+    configure = new Configuration().setTraceExportIntervalMs(5000)
+    impl = toImpl(configure)
+    expect(impl).toBeDefined()
+    expect(impl.getTracesExportIntervalMs()).toBe(5000)
 })
 
 test("Verify the skip internet check flag", () => {
