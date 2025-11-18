@@ -13,7 +13,7 @@ import {
     changeSignalConnection,
     getTrace,
     flushAllSignals,
-    type TraceSpan
+    type ASpan
 } from "./index.js"
 
 async function main() {

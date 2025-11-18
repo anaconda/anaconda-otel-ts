@@ -7,7 +7,7 @@ import * as path from 'path'
 import { jest, expect, beforeEach, beforeAll, afterAll, afterEach } from '@jest/globals';
 import { Configuration, InternalConfiguration } from '../../src/config'
 import { InternalResourceAttributes, ResourceAttributes } from '../../src/attributes'
-import { AnacondaTrace, NoopSpanExporter, TraceSpanImpl } from '../../src/traces'
+import { AnacondaTrace, NoopSpanExporter, ASpanImpl } from '../../src/traces'
 import { AnacondaCommon } from '../../src/common';
 import { TraceArgs, type CarrierMap } from '../../src/types'
 import type { Resource as _Resource } from '@opentelemetry/resources';
@@ -160,7 +160,7 @@ test("test NoOp exporter", () => {
     new TraceArgs()
  })
 
- test("TraceSpanImpl tests with ID", () => {
+ test("ASpanImpl tests with ID", () => {
     const config = new Configuration().setUseConsoleOutput(true)
     const attributes = new ResourceAttributes("test_service", "0.0.1")
     attributes.setAttributes({ userId: "TestUser" })
@@ -178,7 +178,7 @@ test("test NoOp exporter", () => {
     ut.end()
 })
 
- test("TraceSpanImpl tests without ID", () => {
+ test("ASpanImpl tests without ID", () => {
     const config = new Configuration().setUseConsoleOutput(true)
     const attributes = new ResourceAttributes("test_service", "0.0.1")
     const tracer = new AnacondaTrace(config, attributes)

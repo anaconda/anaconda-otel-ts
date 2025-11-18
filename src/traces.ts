@@ -3,7 +3,7 @@
 
 import * as fs from 'fs';
 
-import { type AttrMap, type CarrierMap, TraceArgs, type TraceSpan } from './types.js'
+import { type AttrMap, type CarrierMap, TraceArgs, type ASpan } from './types.js'
 import { Configuration } from './config.js'
 import { ResourceAttributes } from './attributes.js'
 import { AnacondaCommon } from "./common.js"
@@ -47,7 +47,7 @@ type BatchSpanProcessor = _BatchSpanProcessor;
 type NodeTracerProvider = _NodeTracerProvider;
 type ChannelCredentials = _ChannelCredentials;
 
-export class TraceSpanImpl implements TraceSpan {
+export class ASpanImpl implements ASpan {
     readonly tracer: AnacondaTrace
     readonly ctx: Context;
     readonly span: Span;
@@ -116,7 +116,7 @@ export class AnacondaTrace extends AnacondaCommon {
         return true
     }
 
-    getTrace(name: string, attributes?: AttrMap, carrier?: CarrierMap, parentObject?: TraceSpan): TraceSpan {
+    getTrace(name: string, attributes?: AttrMap, carrier?: CarrierMap, parentObject?: ASpan): ASpan {
         let ctx
         if (parentObject) { // Highest precidence if both this and carrier are passed
             ctx = propagation.extract(api.context.active(), parentObject!.getCurrentCarrier())
@@ -131,7 +131,7 @@ export class AnacondaTrace extends AnacondaCommon {
             }, ctx)
         const ctxWithSpan = trace.setSpan(ctx, rootSpan)
 
-        return new TraceSpanImpl(this, ctxWithSpan, rootSpan)
+        return new ASpanImpl(this, ctxWithSpan, rootSpan)
     }
 
     flush(): void {

@@ -37,7 +37,7 @@ export class TraceArgs {
 /**
  * This is the tracing context used for tracing both in and out of a process.
  */
-export interface TraceSpan {
+export interface ASpan {
     /**
      * Sent a trace event in this context with the given name and attributes.
      *
@@ -47,7 +47,7 @@ export interface TraceSpan {
      *
      * @example
      * ```typescript
-     *      const ctx = createRootTraceContext({name: "myTraceSpanName"})
+     *      const ctx = createRootTraceContext({name: "mySpanName"})
      *      ctx.addEvent({ name: "MyEventName", attributes: { foo: "bar" }})
      *      ctx.end()
      * ```
@@ -68,7 +68,7 @@ export interface TraceSpan {
      *
      * @example
      * ```typescript
-     *      const span = getSpan(name: "myTraceSpanName")
+     *      const span = getSpan(name: "mySpanName")
      *      span.addEvent({ name: "MyEventName", attributes: { foo: "bar" }})
      *      const carrier = span.getCurrentSpan()
      *      // Send to remote server or across processes to continue sending event

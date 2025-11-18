@@ -226,7 +226,7 @@ more_ parent contexts with [`getTrace`](../functions/index.getTrace.html). If
 continuing, the trace context from another process use the [`CarrierMap`](../types/index.CarrierMap.html)
 information passes via messaging or HTTP headers in the call to the create a context.
 All children trace contexts inherit the information. You can
-retrieve the `CarrierMap` from any [`TraceSpan`](../interfaces/index.TraceSpan.html) object for use
+retrieve the `CarrierMap` from any [`ASpan`](../interfaces/index.ASpan.html) object for use
 across process or server boundaries. See the
 [API documentation](../modules/index.html) for more details.
 

@@ -6,7 +6,7 @@ import { ResourceAttributes } from './attributes.js';
 import { AnacondaMetrics, CounterArgs, HistogramArgs } from './metrics.js';
 import { AnacondaTrace } from './traces.js';
 import { localTimeString as lts } from './common.js';
-import { type AttrMap, type CarrierMap, type TraceSpan, TraceArgs } from './types.js';
+import { type AttrMap, type CarrierMap, type ASpan, TraceArgs } from './types.js';
 
 import {
   __initialized,
@@ -203,7 +203,7 @@ export function decrementCounter(args: CounterArgs): boolean {
 }
 
 /**
- * Create the parent or child tracing span object (TraceSpan) used to send trace events. The object `end()`
+ * Create the parent or child tracing span object (ASpan) used to send trace events. The object `end()`
  * must be called before the trace span can be sent to the collector.
  *
  * @param name - Name for the span object.
@@ -219,17 +219,17 @@ export function decrementCounter(args: CounterArgs): boolean {
  *
  * @example
  * ```typescript
- *      const span = getTrace(name: "myTraceSpanName", {attributes: { feature: "makeMoney" }})
+ *      const span = getTrace(name: "mySpanName", {attributes: { feature: "makeMoney" }})
  *      span.addEvent({ name: "MyEventName", attributes: { foo: "bar" }})
  *      span.end()
  * ```
- * @returns The TraceSpan object if successful, or undefined if not initialized.
+ * @returns The ASpan object if successful, or undefined if not initialized.
  */
 export function getTrace(name: string, args: {
     attributes?: AttrMap,
     carrier?: CarrierMap,
-    parentObject?: TraceSpan
-} | undefined = undefined): TraceSpan | undefined {
+    parentObject?: ASpan
+} | undefined = undefined): ASpan | undefined {
     if (!__tracing) {
         console.warn("*** WARNING: Tracing is not initialized. Call initializeTelemetry first.")
         return undefined

@@ -19,7 +19,7 @@ import {
     __metrics,
     __tracing
 } from '../../src/testing-signals.js';
-import { type TraceSpan } from '../../src/types';
+import { type ASpan } from '../../src/types';
 
 beforeEach(() => {
     jest.clearAllMocks()
@@ -175,7 +175,7 @@ test("decrementCounter without metrics initialized", () => {
     expect(console.warn).toHaveBeenCalledWith("*** WARNING: Metrics not initialized. Call initializeTelemetry first.")
 })
 
-test("createRootTraceSpan with tracing initialized", async () => {
+test("createRootASpan with tracing initialized", async () => {
     const config = new Configuration().setUseConsoleOutput(true)
     const attributes = new ResourceAttributes("test_service", "0.0.1")
 
@@ -185,7 +185,7 @@ test("createRootTraceSpan with tracing initialized", async () => {
     expect(console.warn).not.toHaveBeenCalledWith("*** Tracing not initialized. Call initializeTelemetry with 'tracing' signal type first.")
 })
 
-test("createRootTraceSpan without tracing initialized", async () => {
+test("createRootASpan without tracing initialized", async () => {
     let ctx = getTrace("test_trace", { attributes: { "key": "value" }})
     expect(console.warn).toHaveBeenCalledWith("*** WARNING: Tracing is not initialized. Call initializeTelemetry first.")
 })
