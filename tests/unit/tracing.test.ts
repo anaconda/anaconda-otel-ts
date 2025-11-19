@@ -7,8 +7,7 @@ import * as path from 'path'
 import { jest, expect, beforeEach, beforeAll, afterAll, afterEach } from '@jest/globals';
 import { Configuration, InternalConfiguration } from '../../src/config'
 import { InternalResourceAttributes, ResourceAttributes } from '../../src/attributes'
-import { AnacondaTrace, NoopSpanExporter, ASpanImpl } from '../../src/traces'
-import { AnacondaCommon } from '../../src/common';
+import { AnacondaTrace, NoopSpanExporter } from '../../src/traces'
 import { TraceArgs, type CarrierMap } from '../../src/types'
 import type { Resource as _Resource } from '@opentelemetry/resources';
 type Resource = _Resource;
@@ -19,9 +18,6 @@ jest.mock('@opentelemetry/exporter-trace-otlp-http')
 jest.mock('@opentelemetry/api')
 
 import { type Span, trace, type Tracer } from '@opentelemetry/api'
-
-test("dummy test", () => {
-})
 
 class TestImpl extends AnacondaTrace {
     public constructor(config: Configuration, attributes: ResourceAttributes) {
@@ -178,7 +174,7 @@ test("test NoOp exporter", () => {
     ut.end()
 })
 
- test("ASpanImpl tests without ID", () => {
+test("ASpanImpl tests without ID", () => {
     const config = new Configuration().setUseConsoleOutput(true)
     const attributes = new ResourceAttributes("test_service", "0.0.1")
     const tracer = new AnacondaTrace(config, attributes)
