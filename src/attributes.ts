@@ -261,11 +261,6 @@ export class InternalResourceAttributes {
             result[otelName] = (this as any)[key];
         }
 
-        // Add parameters
-        for (const key in this.parameters) {
-            result[key] = this.parameters[key]
-        }
-
         return result
     }
 
@@ -277,6 +272,9 @@ export class InternalResourceAttributes {
             if (key === 'userId') { continue }
             result[otelName] = (this as any)[key];
         }
+
+        // Add parameters
+        result['parameters'] = JSON.stringify(this.parameters)
 
         return result;
     }

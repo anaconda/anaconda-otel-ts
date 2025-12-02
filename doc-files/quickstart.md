@@ -313,7 +313,7 @@ hostname by default if they are not provided. This is just an opportunity to pro
 - Example: if a server on AWS should have a hostname indicating it is part of the cloud provider
 
 ### Dynamic Attributes
-Dynamic attributes can be any key and any value. This is where a client can create telemetry attributes specific to their needs. In code they can be configured by using `setAttributes`. Dynamic attributes are sent to a dictionary called `parameters`.
+Dynamic resources can be any key and any value. This is where a client can create telemetry attributes specific to their needs. In code they can be configured by using `setAttributes`. Dynamic resources are sent to a dictionary called `parameters`. These will be turned into a JSON object string and set in resources as "parameters": "JSON String".
 
 Passing kwargs to the ResourceAttributes set_attributes method
 ```typescript

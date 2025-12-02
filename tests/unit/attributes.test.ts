@@ -267,7 +267,7 @@ test("Verify getAttributes Returns All Attributes with OTEL Naming", () => {
     expect(result["schema.version"]).toBe("0.2.0")
 
     expect(result["environment"]).toBe("production")
-    expect(result2["custom_attr"]).toBe("custom_value")
+    expect(result["parameters"]).toBe("{\"custom_attr\":\"custom_value\"}")
 })
 
 test("Verify Multiple Instances Have Unique IDs", () => {
@@ -332,14 +332,15 @@ test("Verify Parameters JSON String Format", () => {
     expect(impl.parameters["count"]).toBe("100")
     expect(impl.parameters["enabled"]).toBe("false")
 
-    var result = impl.getEventAttributes()
+    var result = impl.getResourceAttributes()
+    var parameters = JSON.parse(result['parameters'])
      // Verify parameters exists
-    expect(result["tags"]).toBe('["production","v2"]')
-    expect(result["metadata"]).toBe('{"region":"us-east-1","zone":"a"}')
-    expect(result["count"]).toBe("100")
-    expect(result["enabled"]).toBe("false")
+    expect(parameters["tags"]).toBe('["production","v2"]')
+    expect(parameters["metadata"]).toBe('{"region":"us-east-1","zone":"a"}')
+    expect(parameters["count"]).toBe("100")
+    expect(parameters["enabled"]).toBe("false")
 
     // Verify we can parse the nested values
-    expect(JSON.parse(result["tags"])).toEqual(["production", "v2"])
-    expect(JSON.parse(result["metadata"])).toEqual({ region: "us-east-1", zone: "a" })
+    expect(JSON.parse(parameters["tags"])).toEqual(["production", "v2"])
+    expect(JSON.parse(parameters["metadata"])).toEqual({ region: "us-east-1", zone: "a" })
 })
