@@ -12,6 +12,8 @@ includes a quickstart guide accessed from the left list.
 See the [example.ts](./src/example.ts) file for an example of how simple it can be to do complex things like change
 the URLs or bearer authentication token for a endpoint collector.
 
+The OpenTelemetry output format is documented in a sister repository named [anaconda/anaconta-otel-python](https://github.com/anaconda/anaconda-otel-python) The schema file is [here](https://github.com/anaconda/anaconda-otel-python/blob/main/docs/source/schema-versions.md).
+
 ## Coverage Report
 The latest coverage report for the last merged Pull Request is [here](https://anaconda.github.io/anaconda-otel-ts/coverage/index.html).
 

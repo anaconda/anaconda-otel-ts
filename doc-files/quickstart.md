@@ -78,6 +78,8 @@ const attributes = new ResourceAttributes(serviceName, serviceVersion)
 ```
 There are more fields than this which are documented in the API section and in the class docstring. The class also has a `setAttributes()` method which can create values under any key including dynamic keys unique to a specific application or runtime.
 
+The document for the OpenTelemetry output schema does not live in this repository but in the anaconda/anaconda-otel-python repo [**here**](https://github.com/anaconda/anaconda-otel-python/blob/main/docs/source/schema-versions.md).
+
 ---
 
 ## Initialize Telemetry
