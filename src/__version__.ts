@@ -3,7 +3,7 @@
 
 /**
  * Version information for the telemetry SDK.
- * 
+ *
  * This file contains version constants used throughout the library.
  * Update these values when releasing new versions.
  */
@@ -12,4 +12,4 @@
 export const sdkVersion = "0.0.0";
 
 /** Version of the telemetry schema used by this SDK */
-export const schemaVersion = "0.2.0";
+export const schemaVersion = "0.3.0";
