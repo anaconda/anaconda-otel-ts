@@ -17,36 +17,48 @@ interface ExportedSpan {
     name: string;
 }
 
-async function getExportedSpans(): Promise<ExportedSpan[]> {
-    try {
-        const content = await fs.readFile(exportFilePath, 'utf-8');
-        const lines = content.trim().split('\n');
-        const spans: ExportedSpan[] = [];
+async function getExportedSpans(retries = 5, delayMs = 500): Promise<ExportedSpan[]> {
+    for (let attempt = 0; attempt < retries; attempt++) {
+        try {
+            const content = await fs.readFile(exportFilePath, 'utf-8');
+            if (!content.trim()) {
+                await sleep(delayMs);
+                continue;
+            }
+            const spans: ExportedSpan[] = [];
 
-        for (const line of lines) {
-            const data = JSON.parse(line);
-            for (const resourceSpan of data.resourceSpans ?? []) {
-                if (!resourceSpan.scopeSpans) {
-                    continue;
-                }
-                for (const scopeSpan of resourceSpan.scopeSpans) {
-                    for (const span of scopeSpan.spans ?? []) {
-                        spans.push({
-                            traceId: span.traceId,
-                            spanId: span.spanId,
-                            parentSpanId: span.parentSpanId,
-                            name: span.name,
-                        });
+            const lines = content.trim().split('\n');
+            for (const line of lines) {
+                if (!line.trim()) continue;
+                const data = JSON.parse(line);
+                for (const resourceSpan of data.resourceSpans ?? []) {
+                    if (!resourceSpan.scopeSpans) {
+                        continue;
+                    }
+                    for (const scopeSpan of resourceSpan.scopeSpans) {
+                        for (const span of scopeSpan.spans ?? []) {
+                            spans.push({
+                                traceId: span.traceId,
+                                spanId: span.spanId,
+                                parentSpanId: span.parentSpanId || undefined,
+                                name: span.name,
+                            });
+                        }
                     }
                 }
             }
+            if (spans.length > 0) {
+                return spans;
+            }
+            await sleep(delayMs);
+        } catch (error) {
+            if (attempt === retries - 1) {
+                console.error('Error reading exported spans:', error);
+            }
+            await sleep(delayMs);
         }
-
-        return spans;
-    } catch (error) {
-        console.error('Error reading exported spans:', error);
-        return [];
     }
+    return [];
 }
 
 function parseBody(req: http.IncomingMessage): Promise<any> {
@@ -141,7 +153,7 @@ const serverC = http.createServer(async (req, res) => {
 const servers = [serverA, serverB, serverC];
 
 function startServices(): Promise<void> {
-    const config = new Configuration(new URL('http://localhost:4318/v1/traces'));
+    const config = new Configuration(new URL('http://localhost:4318/v1/traces')).setTraceExportIntervalMs(1000);
     const attrs = new ResourceAttributes('test_span_svc', 'v1.0.0');
 
     initializeTelemetry(config, attrs, ['tracing']);
