@@ -8,7 +8,7 @@ import { Configuration } from '../../src/config.js';
 import { ResourceAttributes } from '../../src/attributes.js';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-const exportFilePath = './.tmp/traces.json';
+const exportFilePath = '/.tmp/traces.json';
 
 interface ExportedSpan {
     traceId: string;

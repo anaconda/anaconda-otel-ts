@@ -13,7 +13,7 @@ import * as fs from 'fs/promises';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 // MUST run from the repo root.
-const exportFilePath = './.tmp/metrics.json';
+const exportFilePath = '/.tmp/metrics.json';
 
 async function getResourceAttribute(key: string): Promise<string | undefined> {
     try {

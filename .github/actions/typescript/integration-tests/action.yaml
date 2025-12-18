@@ -31,7 +31,7 @@ runs:
       shell: bash
       run: |
         # Create local directory with open permissions
-        OUTPUT_DIR=./.tmp/
+        OUTPUT_DIR=/.tmp/
         mkdir -p $OUTPUT_DIR
         chmod 757 $OUTPUT_DIR
 
