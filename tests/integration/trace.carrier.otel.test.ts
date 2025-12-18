@@ -20,10 +20,6 @@ interface ExportedSpan {
 async function getExportedSpans(retries = 5, delayMs = 500): Promise<ExportedSpan[]> {
     for (let attempt = 0; attempt < retries; attempt++) {
         try {
-            const files = await fs.readdir('/tmp/otel-output');
-            console.log('Files in /tmp/otel-output:', files);
-            const traceContent = await fs.readFile('/tmp/otel-output/traces.json', 'utf-8');
-            console.log('Contents of traces.json:', traceContent);
             const content = await fs.readFile(exportFilePath, 'utf-8');
             if (!content.trim()) {
                 await sleep(delayMs);
@@ -32,11 +28,9 @@ async function getExportedSpans(retries = 5, delayMs = 500): Promise<ExportedSpa
             const spans: ExportedSpan[] = [];
 
             const lines = content.trim().split('\n');
-            console.log(lines)
             for (const line of lines) {
                 if (!line.trim()) continue;
                 const data = JSON.parse(line);
-                console.log(data)
                 for (const resourceSpan of data.resourceSpans ?? []) {
                     if (!resourceSpan.scopeSpans) {
                         continue;
@@ -159,7 +153,7 @@ const serverC = http.createServer(async (req, res) => {
 const servers = [serverA, serverB, serverC];
 
 function startServices(): Promise<void> {
-    const config = new Configuration(new URL('http://localhost:4318/v1/traces')).setTraceExportIntervalMs(1000);
+    const config = new Configuration(new URL('http://localhost:4318/v1/traces'));
     const attrs = new ResourceAttributes('test_span_svc', 'v1.0.0');
 
     initializeTelemetry(config, attrs, ['tracing']);
@@ -189,11 +183,9 @@ test("Verify distributed tracing across three services", async () => {
 
     const response = await fetch('http://localhost:8001/');
     const result = await response.json();
-    console.log('Response received:', result);
-    console.log('Carrier has traceparent:', result.carrier?.traceparent);
 
     flushAllSignals();
-    await sleep(1000);
+    await sleep(10000);
 
     expect(result.from).toBe('A');
     expect(result.result.from).toBe('B');
