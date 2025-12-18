@@ -31,8 +31,9 @@ runs:
       shell: bash
       run: |
         # Create local directory with open permissions
-        mkdir -p /tmp/otel-output
-        chmod 757 /tmp/otel-output
+        OUTPUT_DIR=/tmp/otel-output
+        mkdir -p $OUTPUT_DIR
+        chmod 757 $OUTPUT_DIR
 
         CONFIG_PATH="./tests/manifests/otel-collector-config.yaml"
 
@@ -42,17 +43,13 @@ runs:
           -p 4317:4317 \
           -p 4318:4318 \
           -v "$CONFIG_PATH:/etc/otelcol/config.yaml:ro" \
-          -v "/tmp/otel-output:/tmp/otel-output" \
+          -v "$OUTPUT_DIR:/tmp/otel-output" \
           otel/opentelemetry-collector-contrib:0.129.1 \
           --config=/etc/otelcol/config.yaml
 
     - name: Run integration tests
       shell: bash
-      env:
-        ATEL_DEFAULT_AUTH_TOKEN: ${{ inputs.otel-prod-token }}
-        ATEL_DEFAULT_ENDPOINT: ${{ inputs.otel-prod-endpoint }}
       working-directory: .
       run: |
-        export ATEL_METRICS_ENDPOINT=http://localhost:4318/v1/metrics
         timeout 30 bash -c 'until curl -s -o /dev/null -w "%{http_code}" $ATEL_METRICS_ENDPOINT 2>/dev/null | grep -q "^[0-9]"; do sleep 1; done' && echo "OpenTelemetry Collector is up!" || echo "Timeout waiting for collector"
         npm run test:integration
