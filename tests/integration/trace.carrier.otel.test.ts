@@ -28,9 +28,11 @@ async function getExportedSpans(retries = 5, delayMs = 500): Promise<ExportedSpa
             const spans: ExportedSpan[] = [];
 
             const lines = content.trim().split('\n');
+            console.log(lines)
             for (const line of lines) {
                 if (!line.trim()) continue;
                 const data = JSON.parse(line);
+                console.log(data)
                 for (const resourceSpan of data.resourceSpans ?? []) {
                     if (!resourceSpan.scopeSpans) {
                         continue;
