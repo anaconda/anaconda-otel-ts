@@ -153,10 +153,6 @@ const serverC = http.createServer(async (req, res) => {
 const servers = [serverA, serverB, serverC];
 
 function startServices(): Promise<void> {
-    const config = new Configuration(new URL('http://localhost:4318/v1/traces'));
-    const attrs = new ResourceAttributes('test_span_svc', 'v1.0.0');
-
-    initializeTelemetry(config, attrs, ['tracing']);
 
     return new Promise((resolve) => {
         serverA.listen(8001, 'localhost');
@@ -179,13 +175,18 @@ function stopServices(): Promise<void[]> {
 }
 
 test("Verify distributed tracing across three services", async () => {
+
+    const config = new Configuration(new URL('http://localhost:4318/v1/traces'));
+    const attrs = new ResourceAttributes('test_span_svc', 'v1.0.0');
+    initializeTelemetry(config, attrs, ['tracing']);
+
     await startServices();
 
     const response = await fetch('http://localhost:8001/');
     const result = await response.json();
 
     flushAllSignals();
-    await sleep(10000);
+    await sleep(1000);
 
     expect(result.from).toBe('A');
     expect(result.result.from).toBe('B');

@@ -49,12 +49,8 @@ runs:
 
     - name: Run integration tests
       shell: bash
-      env:
-        ATEL_DEFAULT_AUTH_TOKEN: ${{ inputs.otel-prod-token }}
-        ATEL_DEFAULT_ENDPOINT: ${{ inputs.otel-prod-endpoint }}
       working-directory: .
       run: |
-        export ATEL_METRICS_ENDPOINT=http://localhost:4318/v1/metrics
         timeout 30 bash -c 'until curl -s -o /dev/null -w "%{http_code}" $ATEL_METRICS_ENDPOINT 2>/dev/null | grep -q "^[0-9]"; do sleep 1; done' && echo "OpenTelemetry Collector is up!" || echo "Timeout waiting for collector"
         npm run test:integration
 
