@@ -202,4 +202,4 @@ test("Verify distributed tracing across three services", async () => {
     expect(spanC!.parentSpanId).toBe(spanB!.spanId);
 
     await stopServices();
-}, 20000);
+});
