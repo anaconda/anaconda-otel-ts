@@ -22,6 +22,8 @@ async function getExportedSpans(retries = 5, delayMs = 500): Promise<ExportedSpa
         try {
             const files = await fs.readdir('/tmp/otel-output');
             console.log('Files in /tmp/otel-output:', files);
+            const traceContent = await fs.readFile('/tmp/otel-output/traces.json', 'utf-8');
+            console.log('Contents of traces.json:', traceContent);
             const content = await fs.readFile(exportFilePath, 'utf-8');
             if (!content.trim()) {
                 await sleep(delayMs);
