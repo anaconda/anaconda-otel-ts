@@ -173,7 +173,7 @@ test("Verify distributed tracing across three services", async () => {
     const result = await response.json();
 
     flushAllSignals();
-    await sleep(2000);
+    await sleep(1000);
 
     expect(result.from).toBe('A');
     expect(result.result.from).toBe('B');
