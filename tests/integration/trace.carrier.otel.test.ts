@@ -20,6 +20,8 @@ interface ExportedSpan {
 async function getExportedSpans(retries = 5, delayMs = 500): Promise<ExportedSpan[]> {
     for (let attempt = 0; attempt < retries; attempt++) {
         try {
+            const files = await fs.readdir('/tmp/otel-output');
+            console.log('Files in /tmp/otel-output:', files);
             const content = await fs.readFile(exportFilePath, 'utf-8');
             if (!content.trim()) {
                 await sleep(delayMs);
