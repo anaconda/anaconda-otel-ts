@@ -6,10 +6,10 @@ receivers:
 
 exporters:
   file/metrics:
-    path: /tmp/metrics.json
+    path: /tmp/otel-output/metrics.json
     flush_interval: 1
   file/traces:
-    path: /tmp/traces.json
+    path: /tmp/otel-output/traces.json
     flush_interval: 1
 
   debug:
