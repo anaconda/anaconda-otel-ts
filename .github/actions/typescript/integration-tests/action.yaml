@@ -59,5 +59,6 @@ runs:
         npm run test:integration
 
     - name: Show collector logs
+      shell: bash
       if: always()
       run: docker logs otel-collector
