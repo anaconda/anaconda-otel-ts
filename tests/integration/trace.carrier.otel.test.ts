@@ -8,7 +8,7 @@ import { Configuration } from '../../src/config.js';
 import { ResourceAttributes } from '../../src/attributes.js';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-const exportFilePath = './.tmp/otel-out.json';
+const exportFilePath = '/tmp/traces.json';
 
 interface ExportedSpan {
     traceId: string;
@@ -26,7 +26,10 @@ async function getExportedSpans(): Promise<ExportedSpan[]> {
         for (const line of lines) {
             const data = JSON.parse(line);
             for (const resourceSpan of data.resourceSpans ?? []) {
-                for (const scopeSpan of resourceSpan.scopeSpans ?? []) {
+                if (!resourceSpan.scopeSpans) {
+                    continue;
+                }
+                for (const scopeSpan of resourceSpan.scopeSpans) {
                     for (const span of scopeSpan.spans ?? []) {
                         spans.push({
                             traceId: span.traceId,
@@ -192,7 +195,7 @@ test("Verify distributed tracing across three services", async () => {
     expect(spanB!.traceId).toBe(spanA!.traceId);
     expect(spanC!.traceId).toBe(spanA!.traceId);
 
-    expect(spanA!.parentSpanId).toBeUndefined();
+    expect(spanA!.parentSpanId).toBeFalsy();
     expect(spanB!.parentSpanId).toBe(spanA!.spanId);
     expect(spanC!.parentSpanId).toBe(spanB!.spanId);
 

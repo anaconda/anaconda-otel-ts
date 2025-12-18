@@ -5,8 +5,11 @@ receivers:
         endpoint: 0.0.0.0:4318
 
 exporters:
-  file:
-    path: /tmp/otel-out.json
+  file/metrics:
+    path: /tmp/metrics.json
+    flush_interval: 1
+  file/traces:
+    path: /tmp/traces.json
     flush_interval: 1
 
   debug:
@@ -20,4 +23,8 @@ service:
     metrics:
       receivers: [otlp]
       processors: [batch]
-      exporters: [file, debug]
+      exporters: [file/metrics, debug]
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [file/traces, debug]

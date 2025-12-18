@@ -13,7 +13,7 @@ import * as fs from 'fs/promises';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 // MUST run from the repo root.
-const exportFilePath = './.tmp/otel-out.json';
+const exportFilePath = '/tmp/metrics.json';
 
 async function getResourceAttribute(key: string): Promise<string | undefined> {
     try {
@@ -68,7 +68,7 @@ test("Verify environment=test resource and metric attributes", async () => {
     incrementCounter({name: "test_counter", by: 1, attributes: {'user.id': '12345'}});
     flushAllSignals()
 
-    sleep(5000) // Allow for collector write time
+    await sleep(2000) // Allow for collector write time
     const env = await getResourceAttribute('environment');
     const user = await getUserID()
     expect(env).toBe('test');
