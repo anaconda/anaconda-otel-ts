@@ -53,8 +53,3 @@ runs:
       run: |
         timeout 30 bash -c 'until curl -s -o /dev/null -w "%{http_code}" $ATEL_METRICS_ENDPOINT 2>/dev/null | grep -q "^[0-9]"; do sleep 1; done' && echo "OpenTelemetry Collector is up!" || echo "Timeout waiting for collector"
         npm run test:integration
-
-    - name: Show collector logs
-      shell: bash
-      if: always()
-      run: docker logs otel-collector
