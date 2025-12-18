@@ -159,7 +159,7 @@ const serverC = http.createServer(async (req, res) => {
 const servers = [serverA, serverB, serverC];
 
 function startServices(): Promise<void> {
-    const config = new Configuration(new URL('http://localhost:4318/v1/traces'));
+    const config = new Configuration(new URL('http://localhost:4318/v1/traces')).setTraceExportIntervalMs(1000);
     const attrs = new ResourceAttributes('test_span_svc', 'v1.0.0');
 
     initializeTelemetry(config, attrs, ['tracing']);
@@ -189,6 +189,8 @@ test("Verify distributed tracing across three services", async () => {
 
     const response = await fetch('http://localhost:8001/');
     const result = await response.json();
+    console.log('Response received:', result);
+    console.log('Carrier has traceparent:', result.carrier?.traceparent);
 
     flushAllSignals();
     await sleep(1000);
