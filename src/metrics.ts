@@ -148,8 +148,18 @@ export class AnacondaMetrics extends AnacondaCommon {
         return true
     }
 
-    flush(): void {
-        this.reader?.forceFlush()
+    async flush(): Promise<void> {
+        try {
+            await this.reader?.forceFlush()
+        } catch (error) {
+            // Log export failures instead of crashing the application
+            // This matches Python SDK behavior where export failures are logged
+            if (error instanceof Error) {
+                this.warn(`Metric export failed: ${error.message}`)
+            } else {
+                this.warn(`Metric export failed: ${String(error)}`)
+            }
+        }
     }
 
     private makeExporter(scheme: string, url: URL, httpHeaders: Record<string,string>,
