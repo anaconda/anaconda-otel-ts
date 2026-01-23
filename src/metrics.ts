@@ -87,6 +87,7 @@ export class AnacondaMetrics extends AnacondaCommon {
             this.config.metricsEndpoint![2] = certFile
         }
         var [scheme, ep] = this.transformURL(this.config.metricsEndpoint![0])
+        ep = this.appendSignalPath(ep, 'metrics')
         var creds: ChannelCredentials | undefined = this.readCredentials(scheme, this.config.metricsEndpoint![2])
         var headers = this.makeHeaders(scheme, authToken)
         var exporter = this.makeExporter(scheme, ep, headers, creds)
@@ -215,6 +216,7 @@ export class AnacondaMetrics extends AnacondaCommon {
         }
         var [endpoint, authToken, certFile] = this.config.getMetricsEndpointTuple()
         var [scheme, ep] = this.transformURL(endpoint)
+        ep = this.appendSignalPath(ep, 'metrics')
         var creds: ChannelCredentials | undefined = this.readCredentials(scheme, certFile)
         var headers = this.makeHeaders(scheme, authToken)
         const reader: PeriodicExportingMetricReader | undefined = this.makeReader(scheme, ep, headers, creds)

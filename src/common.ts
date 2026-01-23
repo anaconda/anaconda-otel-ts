@@ -103,6 +103,37 @@ export class AnacondaCommon {
         return [scheme, ep]
     }
 
+    /**
+     * Appends the OpenTelemetry signal-specific path to the endpoint URL if not already present.
+     * This matches the Python SDK's _set_otel_signal_endpoint() behavior exactly.
+     *
+     * Python reference (anaconda-otel-python/anaconda/opentelemetry/config.py lines 631-637):
+     *   endpoint_str = f"v1/{signal}"
+     *   if not endpoint.endswith(endpoint_str):
+     *       endpoint_str = "/" + endpoint_str if endpoint[-1] != "/" else endpoint_str
+     *       return endpoint + endpoint_str
+     *
+     * @param url - The endpoint URL
+     * @param signalType - The signal type: 'metrics', 'traces', or 'logs'
+     * @returns URL with the appropriate path appended
+     */
+    protected appendSignalPath(url: URL, signalType: string): URL {
+        const result = new URL(url.href)
+        const signalPath = `v1/${signalType}`
+
+        // Check if pathname already ends with the signal path (e.g., "/v1/metrics")
+        if (!result.pathname.endsWith(signalPath)) {
+            // Add leading slash if pathname doesn't end with one
+            const pathToAppend = result.pathname.endsWith('/')
+                ? signalPath
+                : '/' + signalPath
+
+            result.pathname = result.pathname + pathToAppend
+        }
+
+        return result
+    }
+
     protected makeHeaders(scheme: string, authToken: string | undefined): Record<string,string> {
         var headers: Record<string,string> = authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
         if (scheme.startsWith('http')) {

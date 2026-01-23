@@ -104,6 +104,7 @@ export class AnacondaTrace extends AnacondaCommon {
             this.config.traceEndpoint![2] = certFile
         }
         var [scheme, ep] = this.transformURL(this.config.traceEndpoint![0])
+        ep = this.appendSignalPath(ep, 'traces')
         var creds: ChannelCredentials | undefined = this.readCredentials(scheme, this.config.traceEndpoint![2])
         var headers = this.makeHeaders(scheme, authToken)
         var exporter = this.makeExporter(scheme, ep, headers, creds)
@@ -211,11 +212,9 @@ export class AnacondaTrace extends AnacondaCommon {
             diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.DEBUG);
         }
         var [endpoint, authToken, certFile] = this.config.getTraceEndpointTuple()
-        const scheme = endpoint.protocol
-        const ep = new URL(endpoint.href)
+        var [scheme, ep] = this.transformURL(endpoint)
+        ep = this.appendSignalPath(ep, 'traces')
         this.debug(`Connecting to traces endpoint '${ep.href}'.`)
-        ep.protocol = ep.protocol.replace("grpcs:", "https:")
-        ep.protocol = ep.protocol.replace("grpc:", "http:")
         var creds: ChannelCredentials | undefined = this.readCredentials(scheme, certFile)
         const headers: Record<string,string> = authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
         const processor: BatchSpanProcessor | undefined = this.makeBatchProcessor(scheme, ep, headers, creds)
