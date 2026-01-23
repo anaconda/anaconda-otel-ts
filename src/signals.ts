@@ -238,13 +238,18 @@ export function getTrace(name: string, args: {
 }
 
 /**
- * This method will ignore any export time intervals and will immediatly flush cached data in memory
+ * This method will ignore any export time intervals and will immediately flush cached data in memory
  * to the collector. Use sparingly but ALWAYS use it before your application exits.
  *
  * @remarks
- * This method does not throw any known exceptions.
+ * This method does not throw any known exceptions. Export failures (e.g., 404 errors) are logged
+ * as warnings instead of crashing the application, matching the Python SDK behavior.
  */
-export function flushAllSignals(): void {
-    __tracing?.flush()
-    __metrics?.flush()
+export async function flushAllSignals(): Promise<void> {
+    // Flush all signals in parallel and wait for all to complete
+    // Errors are caught and logged by the individual flush methods
+    await Promise.all([
+        __tracing?.flush(),
+        __metrics?.flush()
+    ].filter(Boolean))
 }

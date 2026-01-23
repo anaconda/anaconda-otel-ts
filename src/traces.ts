@@ -134,8 +134,18 @@ export class AnacondaTrace extends AnacondaCommon {
         return new ASpanImpl(this, ctxWithSpan, rootSpan)
     }
 
-    flush(): void {
-        this.processor?.forceFlush()
+    async flush(): Promise<void> {
+        try {
+            await this.processor?.forceFlush()
+        } catch (error) {
+            // Log export failures instead of crashing the application
+            // This matches Python SDK behavior where export failures are logged
+            if (error instanceof Error) {
+                this.warn(`Trace export failed: ${error.message}`)
+            } else {
+                this.warn(`Trace export failed: ${String(error)}`)
+            }
+        }
     }
 
     private embedUserIdIfMissing(ctx: Context): Context {
