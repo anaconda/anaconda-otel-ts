@@ -92,7 +92,8 @@ export class AnacondaTrace extends AnacondaCommon {
         this.setup()
     }
 
-    async changeConnection(endpoint: URL | undefined, authToken: string | undefined, certFile: string | undefined): Promise<boolean> {
+    async changeConnection(endpoint: URL | undefined, authToken: string | undefined,
+                           certFile: string | undefined, userId: string | undefined): Promise<boolean> {
         let [url, token, cert] = this.config.getTraceEndpointTuple()
         if (endpoint !== url && endpoint !== undefined) {
             this.config.traceEndpoint![0] = endpoint
@@ -102,6 +103,10 @@ export class AnacondaTrace extends AnacondaCommon {
         }
         if (certFile !== cert) {
             this.config.traceEndpoint![2] = certFile
+        }
+        let id = userId?.trim()
+        if (typeof id === 'string' && id.length > 0) {
+            this.attributes.userId = id
         }
         var [scheme, ep] = this.transformURL(this.config.traceEndpoint![0])
         var creds: ChannelCredentials | undefined = this.readCredentials(scheme, this.config.traceEndpoint![2])
