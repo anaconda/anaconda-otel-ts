@@ -89,6 +89,10 @@ export class AnacondaTrace extends AnacondaCommon {
 
     constructor(config: Configuration, attributes: ResourceAttributes) {
         super(config, attributes)
+        if (this.isValidOtelUrl(this.config.getTraceEndpointTuple()[0].href) === false) {
+            console.error(`The traces endpoint URL is not valid: ${this.config.getTraceEndpointTuple()[0].href}`)
+            return
+        }
         this.setup()
     }
 

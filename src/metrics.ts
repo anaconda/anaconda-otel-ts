@@ -72,6 +72,10 @@ export class AnacondaMetrics extends AnacondaCommon {
 
     constructor(config: Configuration, attributes: ResourceAttributes) {
         super(config, attributes);
+        if (this.isValidOtelUrl(this.config.getMetricsEndpointTuple()[0].href) === false) {
+            console.error(`The metrics endpoint URL is not valid: ${this.config.getMetricsEndpointTuple()[0].href}`)
+            return
+        }
         this.setup()
     }
 

@@ -130,6 +130,112 @@ export class AnacondaCommon {
         }
         return result
     }
+
+    protected isValidOtelUrl(urlStr: string): boolean {
+        return urlStr === "console:" || urlStr === "devnull:" ||
+               this.isValidOtelHttpUrl(urlStr) || this.isValidOtelGrpcUrl(urlStr)
+    }
+
+    private isValidOtelHttpUrl(urlStr: string): boolean {
+        let u: URL;
+        try {
+            u = new URL(urlStr);
+        } catch {
+            return false;
+        }
+
+        if (u.protocol !== "http:" && u.protocol !== "https:") return false;
+        if (!this.isValidHost(u.hostname)) return false;
+        if (u.port && !this.isValidPort(u.port)) return false;
+
+        // Required exact path: /v1/{type} (no trailing "/")
+        const m = /^\/v1\/(metrics|logs|traces)$/.exec(u.pathname);
+        if (!m) return false;
+
+        // No query/fragment
+        if (u.search !== "" || u.hash !== "") return false;
+
+        return true;
+    }
+
+    /**
+     * 2) Validate an OTLP/gRPC URL:
+     * - scheme: grpc | grpcs
+     * - host: ipv4 | domain | localhost
+     * - optional port
+     * - MUST NOT have a path (i.e. "/" only), NO query/fragment
+     */
+    private isValidOtelGrpcUrl(urlStr: string): boolean {
+        let u: URL;
+        try {
+            u = new URL(urlStr);
+        } catch {
+            return false;
+        }
+
+        if (u.protocol !== "grpc:" && u.protocol !== "grpcs:") return false;
+        if (!this.isValidHost(u.hostname)) return false;
+        if (u.port && !this.isValidPort(u.port)) return false;
+
+        // No path (URL parser represents "no path" as "/")
+        if (u.pathname !== "/") return false;
+
+        // No query/fragment
+        if (u.search !== "" || u.hash !== "") return false;
+
+        return true;
+    }
+
+    /** Host can be "localhost", a valid IPv4, or a valid domain name. */
+    private isValidHost(hostname: string): boolean {
+        if (hostname === "localhost") return true;
+        if (this.isValidIpv4(hostname)) return true;
+        return this.isValidDomain(hostname);
+    }
+
+    private isValidPort(portStr: string): boolean {
+        // URL.port is always digits or empty
+        const port = Number(portStr);
+        return Number.isInteger(port) && port >= 1 && port <= 65535;
+    }
+
+    private isValidIpv4(s: string): boolean {
+        // Strict IPv4: 0-255.0-255.0-255.0-255
+        const parts = s.split(".");
+        if (parts.length !== 4) return false;
+        for (const p of parts) {
+            if (!/^\d{1,3}$/.test(p)) return false;
+            const n = Number(p);
+            if (!Number.isInteger(n) || n < 0 || n > 255) return false;
+            // Optional: disallow leading zeros like "01" (commonly preferred)
+            if (p.length > 1 && p.startsWith("0")) return false;
+        }
+        return true;
+    }
+
+    private isValidDomain(host: string): boolean {
+        // Conservative domain validation:
+        // - labels: [a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?
+        // - at least one dot
+        // - TLD 2-63 letters
+        // - total length <= 253
+        const h = host.toLowerCase();
+        if (h.length === 0 || h.length > 253) return false;
+        if (!h.includes(".")) return false;
+
+        const labels = h.split(".");
+        if (labels.some(l => l.length === 0)) return false;
+
+        const labelRe = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
+        for (const label of labels) {
+            if (!labelRe.test(label)) return false;
+        }
+
+        const tld = labels[labels.length - 1];
+        if (!/^[a-z]{2,63}$/.test(tld)) return false;
+
+        return true;
+    }
 }
 
 export function localTimeString(): string {
