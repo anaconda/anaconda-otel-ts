@@ -375,21 +375,12 @@ export class InternalConfiguration {
         return this.entropy
     }
 
-    private cachedEnvDebug: boolean | null = null
     public getUseDebug(): boolean {
-        if (this.cachedEnvDebug === null && !InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_USE_DEBUG)) {
+        if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_USE_DEBUG)) {
             var str = (process.env.ATEL_USE_DEBUG as string).toLowerCase()
-            if (str === "true" || str === "yes" || str === "1") {
-                this.cachedEnvDebug = true
-            } else {
-                this.cachedEnvDebug = false
-            }
+            return str === "true" || str === "yes" || str === "1"
         }
-        if (this.cachedEnvDebug !== null) {
-            return this.cachedEnvDebug!
-        } else {
-            return this.useDebug
-        }
+        return this.useDebug
     }
 
     public getUseCumulativeMetrics(): boolean {
