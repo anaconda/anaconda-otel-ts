@@ -88,7 +88,8 @@ export function initializeTelemetry(config: Configuration,
 export async function changeSignalConnection(signal: Signal, args:
      {  endpoint?: URL,
         authToken?: string,
-        certFile?: string
+        certFile?: string,
+        userId?: string
     }): Promise<boolean> {
     if (!__initialized) {
         return false
@@ -97,9 +98,9 @@ export async function changeSignalConnection(signal: Signal, args:
         return false
     }
     if (signal === 'metrics') {
-        return await __metrics?.changeConnection(args.endpoint, args.authToken, args.certFile) ?? false
+        return await __metrics?.changeConnection(args.endpoint, args.authToken, args.certFile, args.userId) ?? false
     } else {
-        return await __tracing?.changeConnection(args.endpoint, args.authToken, args.certFile) ?? false
+        return await __tracing?.changeConnection(args.endpoint, args.authToken, args.certFile, args.userId) ?? false
     }
 }
 
