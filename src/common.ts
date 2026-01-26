@@ -115,11 +115,6 @@ export class AnacondaCommon {
         // Get changing attributes from ResourceAttributes...
         const result: AttrMap = this.attributes.getEventAttributes()
 
-        // Make sure there is a 'user.id' value...
-        if (!result['user.id']) {
-            result['user.id'] = "anonymous"
-        }
-
         // Add user supplied attributes if any...
         if (userAttributes) {
             for (const key in userAttributes) {

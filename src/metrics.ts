@@ -79,7 +79,8 @@ export class AnacondaMetrics extends AnacondaCommon {
         this.setup()
     }
 
-    async changeConnection(endpoint: URL | undefined, authToken: string | undefined, certFile: string | undefined): Promise<boolean> {
+    async changeConnection(endpoint: URL | undefined, authToken: string | undefined,
+                           certFile: string | undefined, userId: string | undefined): Promise<boolean> {
         let [url, token, cert] = this.config.getMetricsEndpointTuple()
         if (endpoint !== url && endpoint !== undefined) {
             this.config.metricsEndpoint![0] = endpoint
@@ -89,6 +90,10 @@ export class AnacondaMetrics extends AnacondaCommon {
         }
         if (certFile !== cert) {
             this.config.metricsEndpoint![2] = certFile
+        }
+        let id = userId?.trim()
+        if (typeof id === 'string' && id.length > 0) {
+            this.attributes.userId = id
         }
         var [scheme, ep] = this.transformURL(this.config.metricsEndpoint![0])
         var creds: ChannelCredentials | undefined = this.readCredentials(scheme, this.config.metricsEndpoint![2])
