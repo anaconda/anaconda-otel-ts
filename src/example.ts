@@ -25,11 +25,11 @@ async function main() {
     const res = new ResourceAttributes("test_aotel", "1.2.3")
         .setAttributes({foo: "test", userId: "exampleUser"})
 
-    initializeTelemetry(config, res, [/*"metrics",*/ "tracing"])
+    initializeTelemetry(config, res, ["metrics", "tracing"])
     console.log("=== Running...EP #1")
     let parent = getTrace("topLevel")!
-    // recordHistogram({name: "myValue", value: 42})
-    // incrementCounter({name: "feature1"})
+    recordHistogram({name: "myValue", value: 42})
+    incrementCounter({name: "feature1"})
 
     parent.addEvent("Event1")
 
@@ -39,19 +39,19 @@ async function main() {
     child.addEvent("child.event.2")
     child.end()
 
-    // incrementCounter({name: "feature1"})
-    // incrementCounter({name: "feature2"})
+    incrementCounter({name: "feature1"})
+    incrementCounter({name: "feature2"})
     parent.addEvent("Event2")
 
-    // decrementCounter({name: "feature1", by: 2})
+    decrementCounter({name: "feature1", by: 2})
 
     console.log("=== Switching to EP #2.")
     await changeSignalConnection("tracing", { endpoint: new URL("http://localhost:5318/v1/traces") })
     await changeSignalConnection("metrics", { endpoint: new URL("http://localhost:5318/v1/metrics") })
     console.log("=== Running...EP #2")
 
-    // recordHistogram({name: "myValue2", value: 42})
-    // incrementCounter({name: "new_feature1"})
+    recordHistogram({name: "myValue2", value: 42})
+    incrementCounter({name: "new_feature1"})
 
     parent.addEvent("newEvent1")
     child = getTrace("newChild", { parentObject: parent })!
@@ -59,11 +59,11 @@ async function main() {
     child.addEvent("newChild.event.2")
     child.end()
 
-    // incrementCounter({name: "new_feature1"})
-    // incrementCounter({name: "new_feature2"})
+    incrementCounter({name: "new_feature1"})
+    incrementCounter({name: "new_feature2"})
     parent.addEvent("newEvent2")
 
-    // decrementCounter({name: "new_feature1", by: 2})
+    decrementCounter({name: "new_feature1", by: 2})
 
     parent.end()
     flushAllSignals()
