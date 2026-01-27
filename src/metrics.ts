@@ -147,7 +147,7 @@ export class AnacondaMetrics extends AnacondaCommon {
             this.warn(`Metric name '${args.name}' is not a UpDownCounter, decrement is not allowed.`)
             return false
         }
-        let by: number = args.by ? -Math.abs(args.by!) : 1;
+        let by: number = args.by ? -Math.abs(args.by!) : -1;
         counter.add(by, this.makeEventAttributes(args.attributes))
         return true
     }
