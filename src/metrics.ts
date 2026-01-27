@@ -176,16 +176,16 @@ export class AnacondaMetrics extends AnacondaCommon {
                 url: urlStr,
                 credentials: creds,
                 temporalityPreference: this.config.getUseCumulativeMetrics() ?
-                    sdkMetricsNS.AggregationTemporality.CUMULATIVE :
-                    sdkMetricsNS.AggregationTemporality.DELTA
+                    httpNS.AggregationTemporalityPreference.CUMULATIVE :
+                    httpNS.AggregationTemporalityPreference.DELTA
             });
         } else if (scheme === 'http:' || scheme === 'https:') {
             exporter = new OTLPMetricExporterHTTP({
                 url: urlStr,
                 headers: httpHeaders,
                 temporalityPreference: this.config.getUseCumulativeMetrics() ?
-                    sdkMetricsNS.AggregationTemporality.CUMULATIVE :
-                    sdkMetricsNS.AggregationTemporality.DELTA
+                    httpNS.AggregationTemporalityPreference.CUMULATIVE :
+                    httpNS.AggregationTemporalityPreference.DELTA
             });
         } else if (scheme === 'console:') {
             exporter = new ConsoleMetricExporter()
