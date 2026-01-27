@@ -4,6 +4,7 @@
 import * as fs from 'fs';
 import { Configuration, InternalConfiguration, toImpl as toImplCfg } from './config.js';
 import { ResourceAttributes, InternalResourceAttributes, toImpl as toImplAttrs } from './attributes.js';
+import type { AttrMap } from './types.js';
 
 // value import (namespace gives us both ESM & CJS shapes)
 import * as resourcesNS from '@opentelemetry/resources';
@@ -15,8 +16,48 @@ const resourceFromAttributes =
 
 // type import + alias (so you can keep using `Resource` in type positions)
 import type { Resource as _Resource } from '@opentelemetry/resources';
-import type { AttrMap } from './types.js';
 type Resource = _Resource;
+
+// type import for typing only
+import type { Resource as ResourceType } from '@opentelemetry/resources';
+
+/**
+ * Build a Resource with SDK defaults + user attributes.
+ * Synchronous, ctor-safe, no detectors.
+ */
+export function buildResourceWithDefaults(
+  attrs: Record<string, unknown> = {}
+): ResourceType {
+  // Get SDK default resource
+  let base: any;
+  if (typeof (resourcesNS as any).defaultResource === 'function') {
+    // v2.x function API
+    base = (resourcesNS as any).defaultResource();
+  } else if ((resourcesNS as any).Resource?.default) {
+    // older runtime shape
+    base = (resourcesNS as any).Resource.default();
+  } else if ((resourcesNS as any).Resource) {
+    // last-resort fallback
+    base = new (resourcesNS as any).Resource({});
+  } else {
+    throw new Error('Unsupported @opentelemetry/resources runtime');
+  }
+
+  // Build resource from attributes
+  const custom =
+    typeof (resourcesNS as any).resourceFromAttributes === 'function'
+      ? (resourcesNS as any).resourceFromAttributes(attrs)
+      : new (resourcesNS as any).Resource(attrs);
+
+  // Merge: defaults <- custom (custom wins)
+  if (typeof base.merge === 'function') {
+    return base.merge(custom) as ResourceType;
+  }
+
+  // Extremely old fallback (should never hit in practice)
+  return custom as ResourceType;
+}
+
 
 export class AnacondaCommon {
     config: InternalConfiguration
@@ -31,7 +72,7 @@ export class AnacondaCommon {
         if (this.config.getEntropy() !== '') {
             resourceObject['session.id'] = this.config.getEntropy()
         }
-        this.resources = resourceFromAttributes(resourceObject)
+        this.resources = buildResourceWithDefaults(resourceObject)
     }
 
     protected makeNewResource(newAttributes: ResourceAttributes): void {
@@ -41,7 +82,7 @@ export class AnacondaCommon {
         if (this.config.getEntropy() !== '') {
             resourceObject['session.id'] = this.config.getEntropy()
         }
-        this.resources = resourceFromAttributes(resourceObject)
+        this.resources = buildResourceWithDefaults(resourceObject)
     }
 
     protected get serviceName(): string {
