@@ -71,6 +71,8 @@ export class AnacondaCommon {
         let resourceObject = this.attributes.getResourceAttributes()
         if (this.config.getEntropy() !== '') {
             resourceObject['session.id'] = this.config.getEntropy()
+        } else {
+            resourceObject['session.id'] = crypto.randomUUID();
         }
         this.resources = buildResourceWithDefaults(resourceObject)
     }
