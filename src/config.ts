@@ -272,7 +272,7 @@ export class InternalConfiguration {
 
     public getUseConsole(): boolean {
         if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_USE_CONSOLE)) {
-            var useStr: string = (process.env.ATEL_USE_CONSOLE as string).toLowerCase()
+            const useStr = (process.env.ATEL_USE_CONSOLE as string).toLowerCase()
             if (useStr === "true" || useStr === "yes" || useStr === "1") {
                 return true
             }
@@ -285,8 +285,8 @@ export class InternalConfiguration {
         if (this.getUseConsole()) {
             return InternalConfiguration.consoleTuple
         } else if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_METRICS_ENDPOINT)) {
-            var def: EndpointTuple = this.getDefaultEndpointTuple()
-            var endpoint: EndpointTuple = [def[0], def[1], def[2]]
+            const def: EndpointTuple = this.getDefaultEndpointTuple()
+            const endpoint: EndpointTuple = [def[0], def[1], def[2]]
             endpoint[0] = new URL(process.env.ATEL_METRICS_ENDPOINT as string)
             if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_METRICS_AUTH_TOKEN)) {
                 endpoint[1] = process.env.ATEL_METRICS_AUTH_TOKEN
@@ -306,8 +306,8 @@ export class InternalConfiguration {
         if (this.getUseConsole()) {
             return InternalConfiguration.consoleTuple
         } else if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_TRACE_ENDPOINT)) {
-            var def: EndpointTuple = this.getDefaultEndpointTuple()
-            var endpoint: EndpointTuple = [def[0], def[1], def[2]]
+            const def: EndpointTuple = this.getDefaultEndpointTuple()
+            const endpoint: EndpointTuple = [def[0], def[1], def[2]]
             endpoint[0] = new URL(process.env.ATEL_TRACE_ENDPOINT as string)
             if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_TRACE_AUTH_TOKEN)) {
                 endpoint[1] = process.env.ATEL_TRACE_AUTH_TOKEN
@@ -325,8 +325,8 @@ export class InternalConfiguration {
 
     public getMetricsExportIntervalMs(): number {
         if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_METRICS_EXPORT_INTERVAL_MS)) {
-            var str = process.env.ATEL_METRICS_EXPORT_INTERVAL_MS as string
-            var value = parseInt(str, 10)
+            const str = process.env.ATEL_METRICS_EXPORT_INTERVAL_MS as string
+            const value = parseInt(str, 10)
             if (isNaN(value) || value < 1000) {
                 return this.metricsExportIntervalMs // Default internal storage milliseconds if invalid.
             }
@@ -337,8 +337,8 @@ export class InternalConfiguration {
 
     public getTracesExportIntervalMs(): number {
         if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_TRACES_EXPORT_INTERVAL_MS)) {
-            var str = process.env.ATEL_TRACES_EXPORT_INTERVAL_MS as string
-            var value = parseInt(str, 10)
+            const str = process.env.ATEL_TRACES_EXPORT_INTERVAL_MS as string
+            const value = parseInt(str, 10)
             if (isNaN(value) || value < 1000) {
                 return this.tracesExportIntervalMs // Default internal storage milliseconds if invalid.
             }
@@ -349,11 +349,8 @@ export class InternalConfiguration {
 
     public getSkipInternetCheck(): boolean {
         if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_SKIP_INTERNET_CHECK)) {
-            var str = (process.env.ATEL_SKIP_INTERNET_CHECK as string).toLowerCase()
-            if (str === "true" || str === "yes" || str === "1") {
-                return true
-            }
-            return false
+            const str = (process.env.ATEL_SKIP_INTERNET_CHECK as string).toLowerCase()
+            return str === "true" || str === "yes" || str === "1"
         }
         return this.skipInternetCheck
     }
@@ -375,21 +372,12 @@ export class InternalConfiguration {
         return this.entropy
     }
 
-    private cachedEnvDebug: boolean | null = null
     public getUseDebug(): boolean {
-        if (this.cachedEnvDebug === null && !InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_USE_DEBUG)) {
-            var str = (process.env.ATEL_USE_DEBUG as string).toLowerCase()
-            if (str === "true" || str === "yes" || str === "1") {
-                this.cachedEnvDebug = true
-            } else {
-                this.cachedEnvDebug = false
-            }
+        if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_USE_DEBUG)) {
+            const str = (process.env.ATEL_USE_DEBUG as string).toLowerCase()
+            return str === "true" || str === "yes" || str === "1"
         }
-        if (this.cachedEnvDebug !== null) {
-            return this.cachedEnvDebug!
-        } else {
-            return this.useDebug
-        }
+        return this.useDebug
     }
 
     public getUseCumulativeMetrics(): boolean {
@@ -406,7 +394,7 @@ export class InternalConfiguration {
 
 // Used inside the package to get the private impl from the public class.
 export function toImpl(configuration: Configuration): InternalConfiguration {
-    var id = configuration.__id
-    var impl: InternalConfiguration = InternalConfiguration.__lookupImpl[id]
+    const id = configuration.__id
+    const impl: InternalConfiguration = InternalConfiguration.__lookupImpl[id]
     return impl
 }
