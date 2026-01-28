@@ -128,36 +128,45 @@ test("valid URL testing", ()=> {
     let ut = new TestImpl(config, attributes)
 
     // Positive Cases
-    expect(ut.exposedUrlTest("console:")).toBe(true)
-    expect(ut.exposedUrlTest("devnull:")).toBe(true)
-
-    expect(ut.exposedUrlTest("http://localhost/v1/metrics")).toBe(true)
-    expect(ut.exposedUrlTest("http://localhost:2118/v1/logs")).toBe(true)
-    expect(ut.exposedUrlTest("http://127.0.0.1:2118/v1/traces")).toBe(true)
-    expect(ut.exposedUrlTest("https://some.website.test:2118/v1/metrics")).toBe(true)
-    expect(ut.exposedUrlTest("https://some.website.test/v1/metrics")).toBe(true)
-
-    expect(ut.exposedUrlTest("grpc://localhost/")).toBe(true)
-    expect(ut.exposedUrlTest("grpc://localhost:2118/")).toBe(true)
-    expect(ut.exposedUrlTest("grpc://127.0.0.1:2118/")).toBe(true)
-    expect(ut.exposedUrlTest("grpcs://some.website.test:2118/")).toBe(true)
-    expect(ut.exposedUrlTest("grpcs://some.website.test:2118/")).toBe(true)
-    expect(ut.exposedUrlTest("grpcs://some.website.test/")).toBe(true)
+    const posUrls = [
+        "console:",
+        "devnull:",
+        "http://localhost/v1/metrics",
+        "http://localhost:2118/v1/logs",
+        "http://127.0.0.1:2118/v1/traces",
+        "https://some.website.test:2118/v1/metrics",
+        "https://some.website.test/v1/metrics",
+        "grpc://localhost/",
+        "grpc://localhost:2118/",
+        "grpc://127.0.0.1:2118/",
+        "grpcs://some.website.test:2118/",
+        "grpcs://some.website.test:2118/",
+        "grpcs://some.website.test/",
+    ]
+    for (const url of posUrls) {
+        expect(ut.exposedUrlTest(url)).toBe(true)
+    }
 
     // Negative Cases
-    expect(ut.exposedUrlTest("bad:")).toBe(false)
-
-    expect(ut.exposedUrlTest("http://localhost/")).toBe(false)
-    expect(ut.exposedUrlTest("http://me/v1/metrics")).toBe(false)
-    expect(ut.exposedUrlTest("http://me:2118/v1/logs")).toBe(false)
-    expect(ut.exposedUrlTest("http://256.0.0.1:2118/v1/traces")).toBe(false)
-    expect(ut.exposedUrlTest("https://some.website.test:2118/v2/metrics")).toBe(false)
-    expect(ut.exposedUrlTest("https://some.website.test:211834/v1/metrics")).toBe(false)
-    expect(ut.exposedUrlTest("https://some.website.test/v1/bad")).toBe(false)
-
-    expect(ut.exposedUrlTest("grpc://localhost/v1/metrics")).toBe(false)
-    expect(ut.exposedUrlTest("grpc://localhost:2118/v1/logs")).toBe(false)
-    expect(ut.exposedUrlTest("grpc://256.0.0.1:2118/")).toBe(false)
-    expect(ut.exposedUrlTest("grpcs://some.website.test:2118/v2")).toBe(false)
-    expect(ut.exposedUrlTest("grpcs://some.website.test:211867/")).toBe(false)
+    const negUrls = [
+        "bad:",
+        "http://localhost/",
+        "http://me/v1/metrics",
+        "http://me:2118/v1/logs",
+        "http://256.0.0.1:2118/v1/traces",
+        "https://some.website.test:2118/v2/metrics",
+        "https://some.website.test:211834/v1/metrics",
+        "https://some.website.test/v1/bad",
+        "grpc://localhost/v1/metrics",
+        "grpc://localhost:2118/v1/logs",
+        "grpc://256.0.0.1:2118/",
+        "grpcs://some.website.test:2118/v2",
+        "grpcs://some.website.test:211867/",
+        "not-a-url",
+        "   ",
+        "",
+    ]
+    for (const url of negUrls) {
+        expect(ut.exposedUrlTest(url)).toBe(false)
+    }
 })
