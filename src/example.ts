@@ -40,7 +40,7 @@ async function main() {
     child.end()
 
     incrementCounter({name: "feature1"})
-    incrementCounter({name: "feature2"})
+    incrementCounter({name: "feature2", attributes: {"http.method": "POST"}})
     parent.addEvent("Event2")
 
     decrementCounter({name: "feature1", by: 2})
@@ -51,7 +51,7 @@ async function main() {
     console.log("=== Running...EP #2")
 
     recordHistogram({name: "myValue2", value: 42})
-    incrementCounter({name: "newfeature1"})
+    incrementCounter({name: "newfeature1", attributes: {"http.method": "POST"}})
 
     parent.addEvent("newEvent1")
     child = getTrace("newChild", { parentObject: parent })!
