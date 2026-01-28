@@ -17,8 +17,6 @@ jest.mock('@opentelemetry/exporter-trace-otlp-grpc')
 jest.mock('@opentelemetry/exporter-trace-otlp-http')
 jest.mock('@opentelemetry/api')
 
-import { type Span, trace, type Tracer } from '@opentelemetry/api'
-
 class TestImpl extends AnacondaTrace {
     public constructor(config: Configuration, attributes: ResourceAttributes) {
         super(config, attributes)
@@ -91,12 +89,12 @@ test("verify AnacondaTrace class instantiation", () => {
     const attributes = new ResourceAttributes("test_service", "0.0.1")
 
     // Create an instance of AnacondaMetrics
-    const metrics = new AnacondaTrace(config, attributes)
+    const tracer = new AnacondaTrace(config, attributes)
 
     // Verify the instance is created correctly
-    expect(metrics).toBeInstanceOf(AnacondaTrace)
-    expect(metrics.config).toBeInstanceOf(InternalConfiguration)
-    expect(metrics.attributes).toBeInstanceOf(InternalResourceAttributes)
+    expect(tracer).toBeInstanceOf(AnacondaTrace)
+    expect(tracer.config).toBeInstanceOf(InternalConfiguration)
+    expect(tracer.attributes).toBeInstanceOf(InternalResourceAttributes)
 })
 
 test("verify non-console implementation for setup and variations", () => {
@@ -107,7 +105,8 @@ test("verify non-console implementation for setup and variations", () => {
             for (let schema of Object.keys(ports)) {
                 counter += 1
                 const port = ports[schema]
-                const str = `${schema}://localhost:${port}/v1/traces`
+                const path = schema.startsWith("grpc") ? "/" : "/v1/metrics"
+                const str = (schema === "devnull" || schema === "unknown") ? `${schema}:` : `${schema}://localhost:${port}${path}`
                 const url = new URL(str)
                 const config = new Configuration();
                 config.setTraceEndpoint(url, authToken, cert)
@@ -119,7 +118,7 @@ test("verify non-console implementation for setup and variations", () => {
 })
 
 test("verify readCredentials", () => {
-    const config = new Configuration();
+    const config = new Configuration().setDebugState(true);
     const attributes = new ResourceAttributes("test_service", "0.0.1")
     var trace = new AnacondaTrace(config, attributes)
     for (let file of [undefined, certFile]) {
@@ -193,4 +192,28 @@ test("test flushing", () => {
     const attributes = new ResourceAttributes("test_service", "0.0.1")
     var trace = new AnacondaTrace(config, attributes)
     trace.flush()
+})
+
+test("Test bad changeConnection URL", async () => {
+    const config = new Configuration().setUseConsoleOutput(true)
+    const attributes = new ResourceAttributes("test_service", "0.0.1")
+
+    // Create an instance of AnacondaMetrics
+    const tracer = new AnacondaTrace(config, attributes)
+
+    const rv = await tracer.changeConnection(new URL("ftp://somehost.domain:34545/"), undefined, undefined, undefined)
+    expect(rv).toBe(false)
+})
+
+test("test adding a new user id", async () => {
+    const config = new Configuration().setUseConsoleOutput(true)
+    const attributes = new ResourceAttributes("test_service", "0.0.1")
+
+    // Create an instance of AnacondaMetrics
+    const tracer = new AnacondaTrace(config, attributes)
+
+    try {
+        const rv = await tracer.changeConnection(undefined, undefined, undefined, "newUser")
+    } catch {}
+    expect(tracer.attributes.userId).toBe("newUser")
 })

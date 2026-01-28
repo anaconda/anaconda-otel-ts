@@ -98,6 +98,10 @@ export class AnacondaTrace extends AnacondaCommon {
 
     async changeConnection(endpoint: URL | undefined, authToken: string | undefined,
                            certFile: string | undefined, userId: string | undefined): Promise<boolean> {
+        if (endpoint && this.isValidOtelUrl(endpoint!.href) === false) {
+            console.error(`The traces endpoint URL is not valid: ${endpoint!.href}`)
+            return false
+        }
         let [url, token, cert] = this.config.getTraceEndpointTuple()
         if (endpoint !== url && endpoint !== undefined) {
             this.config.traceEndpoint![0] = endpoint
@@ -149,11 +153,7 @@ export class AnacondaTrace extends AnacondaCommon {
         } catch (error) {
             // Log export failures instead of crashing the application
             // This matches Python SDK behavior where export failures are logged
-            if (error instanceof Error) {
-                this.warn(`Trace export failed: ${error.message}`)
-            } else {
-                this.warn(`Trace export failed: ${String(error)}`)
-            }
+            this.warn(`Trace export failed: ${this.errorMessage(error)}`)
         }
     }
 
