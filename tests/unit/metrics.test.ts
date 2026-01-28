@@ -76,7 +76,7 @@ beforeEach(() => {
     jest.spyOn(console, 'warn').mockImplementation(() => {})
     jest.spyOn(console, 'error').mockImplementation(() => {})
 
-    const config = new Configuration().setUseConsoleOutput(true).setUseCumulativeMetrics((counter % 2) === 1)
+    const config = new Configuration().setUseConsoleOutput(true).setUseCumulativeMetrics((counter % 2) === 1).setDebugState(true)
     const attributes = new ResourceAttributes("test_service", "0.0.1")
     metrics = new AnacondaMetrics(config, attributes)
     metrics.meter = mockedMeter
@@ -138,7 +138,8 @@ test("verify non-console implementation for setup and variations", () => {
                     process.env.OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE = "DELTA"
                 }
                 const port = ports[schema]
-                const str = `${schema}://localhost:${port}/v1/metrics`
+                const path = schema.startsWith("grpc") ? "/" : "/v1/metrics"
+                const str = (schema === "devnull" || schema === "unknown") ? `${schema}:` : `${schema}://localhost:${port}${path}`
                 const url = new URL(str)
                 const config = new Configuration();
                 config.setMetricsEndpoint(url, authToken, cert)
@@ -180,4 +181,16 @@ test("check for invalid names", () => {
 test("dummy tests for argument objects (would lower coverage but could be deleteed)", () => {
     const counter = new CounterArgs()
     const histogram = new HistogramArgs()
+})
+
+test("Test bad changeConnection URL", async () => {
+    const rv = await metrics.changeConnection(new URL("ftp://somehost.domain:34545/"), undefined, undefined, undefined)
+    expect(rv).toBe(false)
+})
+
+test("test adding a new user id", async () => {
+    try {
+        const rv = await metrics.changeConnection(undefined, undefined, undefined, "newUser")
+    } catch {}
+    expect(metrics.attributes.userId).toBe("newUser")
 })

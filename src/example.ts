@@ -46,12 +46,12 @@ async function main() {
     decrementCounter({name: "feature1", by: 2})
 
     console.log("=== Switching to EP #2.")
-    await changeSignalConnection("tracing", { endpoint: new URL("http://localhost:5318/v1/traces") })
-    await changeSignalConnection("metrics", { endpoint: new URL("http://localhost:5318/v1/metrics") })
+    await changeSignalConnection("tracing", { endpoint: new URL("http://localhost:5318/v1/traces"), userId: "newUser" })
+    await changeSignalConnection("metrics", { endpoint: new URL("http://localhost:5318/v1/metrics"), userId: "newUser" })
     console.log("=== Running...EP #2")
 
     recordHistogram({name: "myValue2", value: 42})
-    incrementCounter({name: "new_feature1"})
+    incrementCounter({name: "newfeature1"})
 
     parent.addEvent("newEvent1")
     child = getTrace("newChild", { parentObject: parent })!
@@ -59,11 +59,11 @@ async function main() {
     child.addEvent("newChild.event.2")
     child.end()
 
-    incrementCounter({name: "new_feature1"})
-    incrementCounter({name: "new_feature2"})
+    incrementCounter({name: "newfeature1"})
+    incrementCounter({name: "newfeature2"})
     parent.addEvent("newEvent2")
 
-    decrementCounter({name: "new_feature1", by: 2})
+    decrementCounter({name: "newfeature1", by: 2})
 
     parent.end()
     flushAllSignals()

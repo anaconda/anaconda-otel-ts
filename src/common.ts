@@ -33,12 +33,6 @@ export function buildResourceWithDefaults(
   if (typeof (resourcesNS as any).defaultResource === 'function') {
     // v2.x function API
     base = (resourcesNS as any).defaultResource();
-  } else if ((resourcesNS as any).Resource?.default) {
-    // older runtime shape
-    base = (resourcesNS as any).Resource.default();
-  } else if ((resourcesNS as any).Resource) {
-    // last-resort fallback
-    base = new (resourcesNS as any).Resource({});
   } else {
     throw new Error('Unsupported @opentelemetry/resources runtime');
   }
@@ -50,12 +44,7 @@ export function buildResourceWithDefaults(
       : new (resourcesNS as any).Resource(attrs);
 
   // Merge: defaults <- custom (custom wins)
-  if (typeof base.merge === 'function') {
     return base.merge(custom) as ResourceType;
-  }
-
-  // Extremely old fallback (should never hit in practice)
-  return custom as ResourceType;
 }
 
 
@@ -152,6 +141,14 @@ export class AnacondaCommon {
             headers['Content-Type'] = 'application/x-protobuf'
         }
         return headers
+    }
+
+    errorMessage(err: any): string {
+        if (err instanceof Error) {
+            return err.message
+        } else {
+            return String(err)
+        }
     }
 
     makeEventAttributes(userAttributes: AttrMap | undefined | null): AttrMap {

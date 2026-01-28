@@ -165,8 +165,19 @@ test("valid URL testing", ()=> {
         "not-a-url",
         "   ",
         "",
+        "ftp://somehost.domain:34545/",
+        "file:///tmp/some.file",
     ]
     for (const url of negUrls) {
         expect(ut.exposedUrlTest(url)).toBe(false)
     }
+})
+
+test("test errorMessage", () => {
+    const config = new Configuration()
+    const attributes = new ResourceAttributes("test_service", "0.0.0")
+    let ut = new TestImpl(config, attributes)
+
+    expect(ut.errorMessage("exact")).toBe("exact")
+    expect(ut.errorMessage(new Error("errMsg"))).toBe("errMsg")
 })

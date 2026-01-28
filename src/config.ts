@@ -248,7 +248,7 @@ export class InternalConfiguration {
 
 
     public static readonly consoleUrl: URL = new URL("console:")
-    public static readonly defaultUrl: URL = new URL("grpc://localhost:4317")
+    public static readonly defaultUrl: URL = new URL("grpc://localhost:4317/")
 
     public defaultEndpoint: EndpointTuple = [InternalConfiguration.defaultUrl, undefined, undefined]
     public metricsEndpoint: EndpointTuple | undefined  = undefined
