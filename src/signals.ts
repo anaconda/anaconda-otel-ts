@@ -76,6 +76,7 @@ export function initializeTelemetry(config: Configuration,
  * @param args.endpoint - The new endpoint for the specific signal.
  * @param args.authToken - The new authorization token for the connection to use.
  * @param args.certFile - The certificate file for mTLS.
+ * @param args.userId - The new userId or 'undefined'.
  *
  * @returns - true if successful, false if it failed.
  *
