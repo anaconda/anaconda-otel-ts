@@ -117,7 +117,8 @@ test("verify incrementCounter and decrementCounter", () => {
     expect(metrics.incrementCounter({name: "name2", forceUpDownCounter: true,  by: 2, attributes: {"reason": "test"}})).toBe(true)
     expect(Object.keys(metrics.mapOfCounters).length).toBe(2)
     expect(metrics.decrementCounter({name: "name1", by: 1, attributes: {"reason": "test"}})).toBe(false)
-    expect(metrics.decrementCounter({name: "name2", by: 1})).toBe(true)
+    expect(metrics.decrementCounter({name: "name2"})).toBe(true) // by defaults to -1 in decrement
+    expect(metrics.testLastBy).toBe(-1)
     expect(metrics.incrementCounter({name: "name2", forceUpDownCounter: false, by: 2, attributes: {"reason": "test"}})).toBe(true)
     expect(Object.keys(metrics.mapOfCounters).length).toBe(2)
     metrics.meter = null

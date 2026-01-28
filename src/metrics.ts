@@ -69,6 +69,7 @@ export class AnacondaMetrics extends AnacondaCommon {
     meterProvider: MeterProvider | undefined = undefined
     meter: Meter | null = null;
     parentExporter: MetricExporterShim | undefined
+    testLastBy: number = 0
 
     constructor(config: Configuration, attributes: ResourceAttributes) {
         super(config, attributes);
@@ -151,7 +152,8 @@ export class AnacondaMetrics extends AnacondaCommon {
             this.warn(`Metric name '${args.name}' is not a UpDownCounter, decrement is not allowed.`)
             return false
         }
-        let by: number = args.by ? -Math.abs(args.by!) : 1;
+        let by: number = args.by ? -Math.abs(args.by!) : -1;
+        this.testLastBy = by
         counter.add(by, this.makeEventAttributes(args.attributes))
         return true
     }
