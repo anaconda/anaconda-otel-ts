@@ -9,7 +9,7 @@
  */
 
 /** Version of the telemetry SDK */
-export const sdkVersion = "0.0.0";
+export const sdkVersion = "0.9.0";
 
 /** Version of the telemetry schema used by this SDK: https://github.com/anaconda/anaconda-otel-python/blob/main/docs/source/schema-versions.md */
 export const schemaVersion = "0.3.0";

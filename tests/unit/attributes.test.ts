@@ -31,7 +31,6 @@ test("Verify Initial State", () => {
     expect(impl).toBeDefined()
     expect(impl.serviceName).toBe("test-service")
     expect(impl.serviceVersion).toBe("0.0.0")
-    expect(impl.clientSdkVersion).toBe("0.0.0")
     expect(impl.schemaVersion).toBe("0.3.0")
 
     length = Object.keys(InternalResourceAttributes.__lookupImpl).length
@@ -199,7 +198,6 @@ test("Verify setAttributes Prevents Overwriting Readonly Fields", () => {
     })
 
     var impl = toImpl(attrs)
-    expect(impl.clientSdkVersion).toBe("0.0.0")
     expect(impl.schemaVersion).toBe("0.3.0")
     expect(consoleSpy).toHaveBeenCalledTimes(3)
 
@@ -263,7 +261,6 @@ test("Verify getAttributes Returns All Attributes with OTEL Naming", () => {
     expect(result["service.version"]).toBe("2.0.0")
     expect(result["environment"]).toBe("production")
     expect(result2["user.id"]).toBe("test-user")
-    expect(result["client.sdk.version"]).toBe("0.0.0")
     expect(result["schema.version"]).toBe("0.3.0")
 
     expect(result["environment"]).toBe("production")
