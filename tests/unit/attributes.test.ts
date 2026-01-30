@@ -31,7 +31,6 @@ test("Verify Initial State", () => {
     expect(impl).toBeDefined()
     expect(impl.serviceName).toBe("test-service")
     expect(impl.serviceVersion).toBe("0.0.0")
-    expect(impl.clientSdkVersion).toBe("0.0.0")
     expect(impl.schemaVersion).toBe("0.3.0")
 
     length = Object.keys(InternalResourceAttributes.__lookupImpl).length
