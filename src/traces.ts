@@ -230,6 +230,10 @@ export class AnacondaTrace extends AnacondaCommon {
             diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.DEBUG);
         }
         var [endpoint, authToken, certFile] = this.config.getTraceEndpointTuple()
+        if (!this.isValidOtelUrl(endpoint.href)) {
+            console.error(`The traces endpoint URL is not valid: ${endpoint.href}`)
+            return
+        }
         const scheme = endpoint.protocol
         const ep = new URL(endpoint.href)
         this.debug(`Connecting to traces endpoint '${ep.href}'.`)

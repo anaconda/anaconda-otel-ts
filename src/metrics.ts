@@ -235,6 +235,10 @@ export class AnacondaMetrics extends AnacondaCommon {
             diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.DEBUG);
         }
         var [endpoint, authToken, certFile] = this.config.getMetricsEndpointTuple()
+        if (!this.isValidOtelUrl(endpoint.href)) {
+            console.error(`The metrics endpoint URL is not valid: ${endpoint.href}`)
+            return
+        }
         var [scheme, ep] = this.transformURL(endpoint)
         var creds: ChannelCredentials | undefined = this.readCredentials(scheme, certFile)
         var headers = this.makeHeaders(scheme, authToken)
