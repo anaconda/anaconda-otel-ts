@@ -251,8 +251,8 @@ export class InternalConfiguration {
     public static readonly defaultUrl: URL = new URL("grpc://localhost:4317/")
 
     public defaultEndpoint: EndpointTuple = [InternalConfiguration.defaultUrl, undefined, undefined]
-    public metricsEndpoint: EndpointTuple | undefined  = undefined
-    public traceEndpoint: EndpointTuple | undefined = undefined
+    public metricsEndpoint: EndpointTuple | undefined  = [InternalConfiguration.defaultUrl, undefined, undefined]
+    public traceEndpoint: EndpointTuple | undefined = [InternalConfiguration.defaultUrl, undefined, undefined]
     public useConsole: boolean = false
     public metricsExportIntervalMs: number = 60000 // Default to 60 seconds
     public tracesExportIntervalMs: number = 60000 // Default to 60 seconds
