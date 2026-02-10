@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 Anaconda, Inc
+// SPDX-FileCopyrightText: 2025-2026 Anaconda, Inc
 // SPDX-License-Identifier: Apache-2.0
 
 import * as fs from 'fs';
@@ -153,7 +153,7 @@ export class AnacondaTrace extends AnacondaCommon {
         } catch (error) {
             // Log export failures instead of crashing the application
             // This matches Python SDK behavior where export failures are logged
-            this.warn(`Trace export failed: ${this.errorMessage(error)}`)
+            this._warn(`Trace export failed: ${this.errorMessage(error)}`)
         }
     }
 
@@ -195,7 +195,7 @@ export class AnacondaTrace extends AnacondaCommon {
         } else if (scheme === 'devnull:') {
             exporter = new NoopSpanExporter()
         } else {
-            this.warn(`Received bad scheme for tracing: ${scheme}!`)
+            this._warn(`Received bad scheme for tracing: ${scheme}!`)
         }
         return exporter
     }
@@ -219,7 +219,7 @@ export class AnacondaTrace extends AnacondaCommon {
             if (certContent) {
                 creds = ChannelCredentials.createSsl(Buffer.from(certContent))
             } else {
-                this.warn(`Failed to read certificate file: ${certFile}`)
+                this._warn(`Failed to read certificate file: ${certFile}`)
             }
         }
         return creds
@@ -236,7 +236,7 @@ export class AnacondaTrace extends AnacondaCommon {
         }
         const scheme = endpoint.protocol
         const ep = new URL(endpoint.href)
-        this.debug(`Connecting to traces endpoint '${ep.href}'.`)
+        this._debug(`Connecting to traces endpoint '${ep.href}'.`)
         ep.protocol = ep.protocol.replace("grpcs:", "https:")
         ep.protocol = ep.protocol.replace("grpc:", "http:")
         var creds: ChannelCredentials | undefined = this.readCredentials(scheme, certFile)

@@ -3,11 +3,12 @@
 
 import { type ResourceMetrics, type PushMetricExporter } from '@opentelemetry/sdk-metrics';
 import { type ReadableSpan, type SpanExporter } from '@opentelemetry/sdk-trace-base'
+import { type LogRecordExporter, type ReadableLogRecord } from '@opentelemetry/sdk-logs'
 import { type ExportResult, ExportResultCode } from '@opentelemetry/core';
 import type { Resource } from '@opentelemetry/resources';
 import { SpanKind, type SpanContext } from '@opentelemetry/api';
 
-import { MetricExporterShim, SpanExporterShim } from '../../src/exporter_shims';
+import { MetricExporterShim, SpanExporterShim, LogRecordExporterShim } from '../../src/exporter_shims';
 
 // globals for testing in async-await contexts.
 var ff_ok: boolean = false
@@ -90,6 +91,37 @@ class ErrorSpanExporter implements SpanExporter {
     }
 }
 
+class MockLoggingExporter implements LogRecordExporter {
+    constructor() {}
+
+    export(logs: ReadableLogRecord[], resultCallback: (result: ExportResult) => void): void {
+        resultCallback({ code: ExportResultCode.SUCCESS });
+    }
+
+    async shutdown(): Promise<void> {
+        s_ok = true
+        return Promise.resolve();
+    }
+}
+
+class ErrorLoggingExporter implements LogRecordExporter {
+    private exceptionType: boolean
+    constructor(exceptionType: boolean = false) { this.exceptionType = exceptionType }
+
+    export(_logs: ReadableLogRecord[], resultCallback: (result: { code: number }) => void): void {
+        if (this.exceptionType) {
+            throw new Error("Exception Error")
+        } else {
+            resultCallback({ code: ExportResultCode.FAILED });
+        }
+    }
+
+    async shutdown(): Promise<void> {
+        s_ok = true
+        return Promise.resolve();
+    }
+}
+
 const mockResourceMetrics: jest.Mocked<ResourceMetrics> = {
   resource: { attributes: { service: 'test' } } as any,
   scopeMetrics: [
@@ -99,6 +131,24 @@ const mockResourceMetrics: jest.Mocked<ResourceMetrics> = {
     },
   ],
 };
+
+const mockLogRecord: jest.Mocked<ReadableLogRecord> = {
+    hrTime: [0, 0],
+    hrTimeObserved: [0, 0],
+    spanContext: undefined,
+    severityText: "UNSPECIFIED",
+    severityNumber: 0,
+    body: "Payload",
+    eventName: "Test Log Event",
+    resource: { attributes: { service: 'test' } } as any,
+    instrumentationScope: {
+        name: "logging",
+        version: "0.0.0",
+        schemaUrl: "",
+    },
+    attributes: {"user.id": "<unknown>"},
+    droppedAttributesCount: 0,
+}
 
 const mockResource = { attributes: { 'service.name': 'mock-service' } } as unknown as Resource;
 
@@ -213,4 +263,44 @@ test("verify Span exporter shim class", async () => {
         expect(result.code).toBe(ExportResultCode.FAILED)
     })
     await ut.forceFlush?.() // Doesn't exist in the ErrorSpanExporter.
+});
+
+test("verify Logging exporter shim class", async () => {
+    s_ok = false
+    ff_ok = false
+    var mockExporter = new MockLoggingExporter()
+    var ut = new LogRecordExporterShim(mockExporter)
+    var record = mockLogRecord
+
+    // Good path
+    ut.export([record], (result: ExportResult) => { expect(result.code).toBe(ExportResultCode.SUCCESS) })
+    expect(ut.isShutdown()).toBe(false)
+    await ut.shutdown()
+    expect(s_ok).toBe(true)
+    expect(ut.isShutdown()).toBe(true)
+
+    // After shutdown...
+    ut.shutdown().then()
+
+   ut.export([record], (result: ExportResult) => {
+        expect(result.code).toBe(ExportResultCode.FAILED); // returns FAILED because of shutdown...
+    });
+
+    // make sure swap resets shutdown flag
+    mockExporter = new MockLoggingExporter()
+    var old = await ut.swapExporter(mockExporter)
+    await old.shutdown()
+    expect(ut.isShutdown()).toBe(false)
+    ut.export([record], (result: ExportResult) => { expect(result.code).toBe(ExportResultCode.SUCCESS) })
+
+    // Bad paths.
+    mockExporter = new ErrorLoggingExporter()
+    old = await ut.swapExporter(mockExporter)
+    await old.shutdown()
+    ut.export([record], (result: ExportResult) => { expect(result.code).toBe(ExportResultCode.FAILED) })
+
+    mockExporter = new ErrorLoggingExporter(true)
+    old = await ut.swapExporter(mockExporter)
+    await old.shutdown()
+    ut.export([record], (result: ExportResult) => { expect(result.code).toBe(ExportResultCode.FAILED) })
 });

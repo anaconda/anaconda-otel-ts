@@ -202,6 +202,46 @@ test("Verify setting and looping through trace endpoints", () => {
     expect(tuple[2]).toBe("/tmp/trace.pem")
 })
 
+test("Verify setting and looping through logging endpoints", () => {
+    var config = new Configuration()
+    var impl = toImpl(config)
+    expect(impl).toBeDefined()
+    var tuple = impl.getLoggingEndpointTuple()
+    expect(tuple[0].toString()).toBe(InternalConfiguration.defaultUrl.toString())
+    expect(tuple[1]).toBeUndefined()
+    expect(tuple[2]).toBeUndefined()
+
+    config.setUseConsoleOutput(true)
+    tuple = impl.getLoggingEndpointTuple()
+    expect(tuple[0].toString()).toBe(InternalConfiguration.consoleUrl.toString())
+    expect(tuple[1]).toBeUndefined()
+    expect(tuple[2]).toBeUndefined()
+
+    config.setUseConsoleOutput(false)
+    process.env.ATEL_LOGGING_ENDPOINT = "https://logging.mydomain.com:1234"
+    tuple = impl.getLoggingEndpointTuple()
+    expect(tuple[0].toString()).toBe("https://logging.mydomain.com:1234/")
+    expect(tuple[1]).toBeUndefined()
+    expect(tuple[2]).toBeUndefined()
+
+    process.env.ATEL_LOGGING_AUTH_TOKEN = "Logging_Token"
+    process.env.ATEL_LOGGING_TLS_PRIVATE_CA_CERT_FILE = "/tmp/logging.pem"
+    tuple = impl.getLoggingEndpointTuple()
+    expect(tuple[0].toString()).toBe("https://logging.mydomain.com:1234/")
+    expect(tuple[1]).toBe("Logging_Token")
+    expect(tuple[2]).toBe("/tmp/logging.pem")
+
+    process.env.ATEL_LOGGING_ENDPOINT = undefined
+    process.env.ATEL_LOGGING_AUTH_TOKEN = undefined
+    process.env.ATEL_LOGGING_TLS_PRIVATE_CA_CERT_FILE = undefined
+
+    config.setLoggingEndpoint(new URL("https://logging3.mydomain.com:4567"), "Logging_Token", "/tmp/logging.pem")
+    tuple = impl.getLoggingEndpointTuple()
+    expect(tuple[0].toString()).toBe("https://logging3.mydomain.com:4567/")
+    expect(tuple[1]).toBe("Logging_Token")
+    expect(tuple[2]).toBe("/tmp/logging.pem")
+})
+
 test("Verify the export interval value", () => {
     var configure = new Configuration()
     var impl = toImpl(configure)
@@ -214,6 +254,10 @@ test("Verify the export interval value", () => {
     expect(() => {
         configure.setTraceExportIntervalMs(50)
     }).toThrow("*** Trace export interval must be at least 100ms")
+    expect(impl.getLoggingExportIntervalMs()).toBe(60000)
+    expect(() => {
+        configure.setLoggingExportIntervalMs(50)
+    }).toThrow("*** Logging export interval must be at least 100ms")
     configure.setMetricExportIntervalMs(1000)
     expect(impl.getMetricsExportIntervalMs()).toBe(1000)
     configure.setMetricExportIntervalMs(5000)
@@ -223,6 +267,11 @@ test("Verify the export interval value", () => {
     expect(impl.getTracesExportIntervalMs()).toBe(1000)
     configure.setTraceExportIntervalMs(5000)
     expect(impl.getTracesExportIntervalMs()).toBe(5000)
+
+    configure.setLoggingExportIntervalMs(1000)
+    expect(impl.getLoggingExportIntervalMs()).toBe(1000)
+    configure.setLoggingExportIntervalMs(5000)
+    expect(impl.getLoggingExportIntervalMs()).toBe(5000)
 
     process.env.ATEL_METRICS_EXPORT_INTERVAL_MS = "2000"
     configure = new Configuration()
@@ -247,6 +296,18 @@ test("Verify the export interval value", () => {
     impl = toImpl(configure)
     expect(impl).toBeDefined()
     expect(impl.getTracesExportIntervalMs()).toBe(5000)
+
+    process.env.ATEL_LOGGING_EXPORT_INTERVAL_MS = "2000"
+    configure = new Configuration()
+    impl = toImpl(configure)
+    expect(impl).toBeDefined()
+    expect(impl.getLoggingExportIntervalMs()).toBe(2000)
+
+    process.env.ATEL_LOGGING_EXPORT_INTERVAL_MS = "500"
+    configure = new Configuration().setLoggingExportIntervalMs(5000)
+    impl = toImpl(configure)
+    expect(impl).toBeDefined()
+    expect(impl.getLoggingExportIntervalMs()).toBe(5000)
 })
 
 test("Verify the skip internet check flag", () => {
@@ -338,6 +399,25 @@ test("Verify set*Endpoint methods", () => {
     config.setTraceEndpoint(new URL("https://trace.mydomain.com:1234"))
     tuple = impl.getTraceEndpointTuple()
     expect(tuple[0].toString()).toBe("https://trace.mydomain.com:1234/")
+    expect(tuple[1]).toBeUndefined()
+    expect(tuple[2]).toBeUndefined()
+
+    // Set logging endpoint
+    config.setLoggingEndpoint(new URL("https://logging.mydomain.com:1234"), "Logging_Token", "/tmp/logging.pem")
+    tuple = impl.getLoggingEndpointTuple()
+    expect(tuple[0].toString()).toBe("https://logging.mydomain.com:1234/")
+    expect(tuple[1]).toBe("Logging_Token")
+    expect(tuple[2]).toBe("/tmp/logging.pem")
+
+    config.setLoggingEndpoint(new URL("https://logging.mydomain.com:1234"), "Logging_Token")
+    tuple = impl.getLoggingEndpointTuple()
+    expect(tuple[0].toString()).toBe("https://logging.mydomain.com:1234/")
+    expect(tuple[1]).toBe("Logging_Token")
+    expect(tuple[2]).toBeUndefined()
+
+    config.setLoggingEndpoint(new URL("https://logging.mydomain.com:1234"))
+    tuple = impl.getLoggingEndpointTuple()
+    expect(tuple[0].toString()).toBe("https://logging.mydomain.com:1234/")
     expect(tuple[1]).toBeUndefined()
     expect(tuple[2]).toBeUndefined()
 })
