@@ -1,0 +1,168 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# create-release
+# - If -V/--specify-version is used, accepts vM.m.p or vM.m.p.h and uses that tag directly.
+# - Otherwise:
+#     - Finds latest tag matching vM.m.p or vM.m.p.h
+#     - Bumps major/minor/patch based on M.m.p ONLY
+#     - Produces new tag in vM.m.p format (no hotfix).
+# - Creates annotated tag and GitHub Release via `gh release create`.
+
+usage() {
+  cat <<'EOF'
+Usage:
+  create-release [--patch|-p] [--feature|-m] [--major|-M]
+                 [--specify-version|-V vM.m.p[.h]]
+                 [--target <ref>] [--dry-run] [--no-push]
+
+Options:
+  -p, --patch                 Bump patch (default)
+  -m, --feature               Bump minor (feature)
+  -M, --major                 Bump major
+  -V, --specify-version TAG   Use TAG directly (must match vM.m.p or vM.m.p.h). Overrides bump flags.
+  --target <ref>              Tag target (branch name, commit SHA, etc). Default: HEAD
+  --dry-run                   Print what would happen, but do nothing
+  --no-push                   Create tag locally but do not push to origin
+  -h, --help                  Show help
+
+Notes:
+  - Bumping (no -V) will ALWAYS produce a vM.m.p tag.
+  - vM.m.p.h (hotfix) tags are ONLY possible via -V/--specify-version.
+EOF
+}
+
+bump="patch"
+target="HEAD"
+dry_run=false
+no_push=false
+specified_version=""
+
+# Parse args
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -p|--patch)   bump="patch"; shift ;;
+    -m|--feature) bump="minor"; shift ;;
+    -M|--major)   bump="major"; shift ;;
+    -V|--specify-version)
+      specified_version="${2:-}"
+      [[ -n "$specified_version" ]] || { echo "ERROR: --specify-version requires a value like v1.2.3 or v1.2.3.1"; exit 1; }
+      shift 2
+      ;;
+    --target)
+      target="${2:-}"
+      [[ -n "$target" ]] || { echo "ERROR: --target requires a value"; exit 1; }
+      shift 2
+      ;;
+    --dry-run)    dry_run=true; shift ;;
+    --no-push)    no_push=true; shift ;;
+    -h|--help)    usage; exit 0 ;;
+    *) echo "ERROR: Unknown argument: $1"; usage; exit 1 ;;
+  esac
+done
+
+# Sanity checks
+command -v git >/dev/null || { echo "ERROR: git not found"; exit 1; }
+command -v gh  >/dev/null || { echo "ERROR: gh (GitHub CLI) not found"; exit 1; }
+
+git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "ERROR: Not in a git repository"; exit 1; }
+
+# Ensure clean working tree
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "ERROR: Working tree is not clean. Commit/stash changes before releasing."
+  exit 1
+fi
+
+# Fetch tags
+git fetch --tags --quiet || true
+
+# Validators
+is_valid_vtag_extended() {
+  # vM.m.p OR vM.m.p.h
+  [[ "$1" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]
+}
+
+new_tag=""
+
+if [[ -n "$specified_version" ]]; then
+  # --- Specified version mode (can be vM.m.p or vM.m.p.h) ---
+  if ! is_valid_vtag_extended "$specified_version"; then
+    echo "ERROR: Specified tag '$specified_version' is invalid. Expected vM.m.p or vM.m.p.h (e.g., v1.2.3 or v1.2.3.1)."
+    exit 1
+  fi
+  new_tag="$specified_version"
+else
+  # --- Bump mode: find latest tag and bump M.m.p only ---
+
+  # Find latest tag matching vM.m.p OR vM.m.p.h
+  last_tag="$(
+    git tag --list 'v[0-9]*.[0-9]*.[0-9]*' 'v[0-9]*.[0-9]*.[0-9]*.[0-9]*' \
+      --sort=-v:refname | head -n 1 || true
+  )"
+
+  if [[ -z "$last_tag" ]]; then
+    echo "ERROR: No tags found matching vM.m.p or vM.m.p.h (e.g., v1.2.3 or v1.2.3.1)."
+    echo "       Create an initial tag first, e.g.: git tag -a v0.1.0 -m 'v0.1.0' && git push origin v0.1.0"
+    exit 1
+  fi
+
+  if [[ ! "$last_tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)(\.([0-9]+))?$ ]]; then
+    echo "ERROR: Latest tag '$last_tag' did not parse as vM.m.p or vM.m.p.h"
+    exit 1
+  fi
+
+  major="${BASH_REMATCH[1]}"
+  minor="${BASH_REMATCH[2]}"
+  patch="${BASH_REMATCH[3]}"
+  # hotfix="${BASH_REMATCH[5]}"  # Ignored for bumping; bump is based ONLY on M.m.p
+
+  case "$bump" in
+    patch) patch=$((patch + 1)) ;;
+    minor) minor=$((minor + 1)); patch=0 ;;
+    major) major=$((major + 1)); minor=0; patch=0 ;;
+    *) echo "ERROR: Internal bump type error: $bump"; exit 1 ;;
+  esac
+
+  # IMPORTANT: bumped tags are ALWAYS vM.m.p (no .h)
+  new_tag="v${major}.${minor}.${patch}"
+fi
+
+# Guard against existing tag
+if git rev-parse -q --verify "refs/tags/${new_tag}" >/dev/null; then
+  echo "ERROR: Tag ${new_tag} already exists."
+  exit 1
+fi
+
+echo "New tag  : ${new_tag}"
+echo "Target   : ${target}"
+echo "Dry run  : ${dry_run}"
+echo "No push  : ${no_push}"
+if [[ -n "$specified_version" ]]; then
+  echo "Mode     : specified version (-V)"
+else
+  echo "Mode     : bump (${bump})"
+fi
+
+if $dry_run; then
+  echo
+  echo "DRY RUN: Would run:"
+  echo "  git tag -a ${new_tag} ${target} -m \"${new_tag}\""
+  if ! $no_push; then
+    echo "  git push origin ${new_tag}"
+  fi
+  echo "  gh release create ${new_tag} --generate-notes"
+  exit 0
+fi
+
+# Create annotated tag
+git tag -a "${new_tag}" "${target}" -m "${new_tag}"
+
+# Push tag (unless opted out)
+if ! $no_push; then
+  git push origin "${new_tag}"
+fi
+
+# Create GitHub release
+gh release create "${new_tag}" --generate-notes
+
+echo "Done: created tag ${new_tag} and GitHub release."

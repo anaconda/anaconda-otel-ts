@@ -57,6 +57,7 @@ jobs:
       - name: Make script executable and run
         run: |
           chmod +x ./scripts/*
+          ./scripts/update-build-version.sh
           ./scripts/build.sh
 
       - name: Get package info and find generated files
