@@ -119,7 +119,7 @@ export class AnacondaMetrics extends AnacondaCommon {
             return false
         }
         if (!this.isValidName(args.name)) {
-            this._warn(`Metric name '${args.name}' is not a valid name (^[A-Za-z][A-Za-z0-9]+$).`)
+            this._warn(`Metric name '${args.name}' is not a valid name (^[A-Za-z][A-Za-z_0-9]+$).`)
             return false
         }
         var histogram = this.getHistogram(args.name)
@@ -133,7 +133,7 @@ export class AnacondaMetrics extends AnacondaCommon {
             return false
         }
         if (!this.isValidName(args.name)) {
-            this._warn(`Metric name '${args.name}' is not a valid name (^[A-Za-z][A-Za-z0-9]+$).`)
+            this._warn(`Metric name '${args.name}' is not a valid name (^[A-Za-z][A-Za-z_0-9]+$).`)
             return false
         }
         var [counter, isUpDown] = this.getCounter(args.name, args.forceUpDownCounter!)
@@ -148,7 +148,7 @@ export class AnacondaMetrics extends AnacondaCommon {
             return false
         }
         if (!this.isValidName(args.name)) {
-            this._warn(`Metric name '${args.name}' is not a valid name (^[A-Za-z][A-Za-z0-9]+$).`)
+            this._warn(`Metric name '${args.name}' is not a valid name (^[A-Za-z][A-Za-z_0-9]+$).`)
             return false
         }
         var [counter, isUpDown] = this.getCounter(args.name, true)

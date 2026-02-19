@@ -187,6 +187,10 @@ export class AnacondaLogging extends AnacondaCommon implements ATelLogger {
     }
 
     private internalSendEvent(name: string, level: LogLevel, payloadStr: string, attributes?: AttrMap): void {
+        if (this.isValidName(name) === false) {
+            console.error(`### ERROR: Invalid name '${name}' for sendEvent should match regex '^[A-Za-z][A-Za-z_0-9]+$'!`)
+            return
+        }
         let severity = _conversionMap[level]
         let severityName = _nameMap[level]
         let updatedAttributes = this.makeEventAttributes(attributes)

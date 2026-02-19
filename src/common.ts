@@ -127,7 +127,7 @@ export class AnacondaCommon {
     }
 
     protected isValidName(name: string): boolean {
-        const regex = /^[A-Za-z][A-Za-z0-9]+$/;
+        const regex = /^[A-Za-z][A-Za-z_0-9]+$/;
         return regex.test(name);
     }
 
