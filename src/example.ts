@@ -18,7 +18,7 @@ import {
 } from "./index.js"
 
 // Internal for testing
-import { type Signal } from "./signals.js"
+import { type Signal } from "./types.js"
 
 const HOST: string = process.env.EXAMPLE_HOST ?? "localhost";
 const PORT1: string = process.env.EXAMPLE_PORT1 ?? "6318";
