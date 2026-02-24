@@ -36,6 +36,9 @@ class TestImpl extends AnacondaCommon {
     public get metricsExportIntervalMsTest(): number {
         return this.metricsExportIntervalMs
     }
+    public get loggingExportIntervalMsTest(): number {
+        return this.loggingExportIntervalMs
+    }
     public get skipInternetCheckTest(): boolean {
         return this.skipInternetCheck
     }
@@ -46,7 +49,7 @@ class TestImpl extends AnacondaCommon {
     public testDebug(line: string) {
         var saved = console.debug
         console.debug = jest.fn()
-        this.debug(line)
+        this._debug(line)
         console.debug = saved
     }
 
@@ -95,6 +98,7 @@ test("Verify AnacondaCommon Getters", () => {
     expect(common.serviceVersionTest).toBe("0.0.0")
     expect(common.useConsoleTest).toBe(false)
     expect(common.metricsExportIntervalMsTest).toBe(60000) // Default value
+    expect(common.loggingExportIntervalMsTest).toBe(60000) // Default value
     expect(common.skipInternetCheckTest).toBe(false)
 })
 

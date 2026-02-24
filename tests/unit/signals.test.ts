@@ -11,13 +11,16 @@ import {
     decrementCounter,
     incrementCounter,
     getTrace,
-    flushAllSignals
+    flushAllSignals,
+    getATelLogger,
+    sendEvent
 } from '../../src/signals'
 import {
     __resetSignals,
     __initialized,
     __metrics,
-    __tracing
+    __tracing,
+    __logging
 } from '../../src/testing-signals.js';
 import { type ASpan } from '../../src/types';
 
@@ -115,7 +118,7 @@ test("recordHistogram with metrics initialized", () => {
 
     initializeTelemetry(config, attributes, ["metrics"])
 
-    const result = recordHistogram({name: "test_metric", value: 42, attributes: { key: "value" }})
+    const result = recordHistogram({name: "testMetric", value: 42, attributes: { key: "value" }})
 
     expect(result).toBe(true)
 })
@@ -133,7 +136,7 @@ test("incrementCounter with metrics initialized", () => {
 
     initializeTelemetry(config, attributes, ["metrics"])
 
-    const result = incrementCounter({name: "test_counter", forceUpDownCounter: false, by: 5, attributes: { key: "value" }})
+    const result = incrementCounter({name: "testCounter", forceUpDownCounter: false, by: 5, attributes: { key: "value" }})
 
     expect(result).toBe(true)
 })
@@ -151,7 +154,7 @@ test("decrementCounter with metrics initialized", () => {
 
     initializeTelemetry(config, attributes, ["metrics"])
 
-    const result = decrementCounter({name: "test_counter", by: 3, attributes: { key: "value" }})
+    const result = decrementCounter({name: "testCounter", by: 3, attributes: { key: "value" }})
 
     expect(result).toBe(true)
 })
@@ -198,62 +201,110 @@ test("changeSignalConnection for metrics and tracing", async () => {
     const config = new Configuration()
         .setMetricsEndpoint(new URL("console:"))
         .setTraceEndpoint(new URL("console:"))
+        .setLoggingEndpoint(new URL("console:"))
+    const attributes = new ResourceAttributes("test_service", "0.0.1")
+
+    // Before Init
+    const before = await changeSignalConnection("metrics", { endpoint: new URL("devnull:") })
+    const before2 = await changeSignalConnection("tracing", { endpoint: new URL("devnull:") })
+    const before3 = await changeSignalConnection("logging", { endpoint: new URL("devnull:") })
+    expect(before).toBe(false)
+    expect(before2).toBe(false)
+    expect(before3).toBe(false)
+
+    initializeTelemetry(config, attributes, ["metrics", "tracing", "logging"])
+
+    var metricsUrl = __metrics?.config.getMetricsEndpointTuple()[0]
+    var tracingUrl = __tracing?.config.getTraceEndpointTuple()[0]
+    var loggingUrl = __logging?.config.getLoggingEndpointTuple()[0]
+    var metricsToken = __metrics?.config.getMetricsEndpointTuple()[1]
+    var tracingToken = __tracing?.config.getTraceEndpointTuple()[1]
+    var loggingToken = __logging?.config.getLoggingEndpointTuple()[1]
+    var metricsFile = __metrics?.config.getMetricsEndpointTuple()[2]
+    var tracingFile = __tracing?.config.getTraceEndpointTuple()[2]
+    var loggingFile = __logging?.config.getLoggingEndpointTuple()[2]
+    expect(metricsUrl?.href).toBe("console:")
+    expect(tracingUrl?.href).toBe("console:")
+    expect(loggingUrl?.href).toBe("console:")
+    expect(metricsToken).toBeUndefined()
+    expect(tracingToken).toBeUndefined()
+    expect(loggingToken).toBeUndefined()
+    expect(metricsFile).toBeUndefined()
+    expect(tracingFile).toBeUndefined()
+    expect(loggingFile).toBeUndefined()
+
+    await changeSignalConnection("metrics", { endpoint: new URL("devnull:") })
+    await changeSignalConnection("tracing", { endpoint: new URL("devnull:") })
+    await changeSignalConnection("logging", { endpoint: new URL("devnull:") })
+    metricsUrl = __metrics?.config.getMetricsEndpointTuple()[0]
+    tracingUrl = __tracing?.config.getTraceEndpointTuple()[0]
+    loggingUrl = __logging?.config.getLoggingEndpointTuple()[0]
+    expect(metricsUrl?.href).toBe("devnull:")
+    expect(tracingUrl?.href).toBe("devnull:")
+    expect(loggingUrl?.href).toBe("devnull:")
+
+    await changeSignalConnection("metrics", { authToken: "newAuth1" })
+    await changeSignalConnection("tracing", { authToken: "newAuth2" })
+    await changeSignalConnection("logging", { authToken: "newAuth3" })
+    metricsUrl = __metrics?.config.getMetricsEndpointTuple()[0]
+    tracingUrl = __tracing?.config.getTraceEndpointTuple()[0]
+    loggingUrl = __logging?.config.getLoggingEndpointTuple()[0]
+    metricsToken = __metrics?.config.getMetricsEndpointTuple()[1]
+    tracingToken = __tracing?.config.getTraceEndpointTuple()[1]
+    loggingToken = __logging?.config.getLoggingEndpointTuple()[1]
+    expect(metricsUrl?.href).toBe("devnull:")
+    expect(tracingUrl?.href).toBe("devnull:")
+    expect(loggingUrl?.href).toBe("devnull:")
+    expect(metricsToken).toBe("newAuth1")
+    expect(tracingToken).toBe("newAuth2")
+    expect(loggingToken).toBe("newAuth3")
+
+    await changeSignalConnection("metrics", { certFile: "/tmp/file1" })
+    await changeSignalConnection("tracing", { certFile: "/tmp/file2" })
+    await changeSignalConnection("logging", { certFile: "/tmp/file3" })
+    metricsUrl = __metrics?.config.getMetricsEndpointTuple()[0]
+    tracingUrl = __tracing?.config.getTraceEndpointTuple()[0]
+    loggingUrl = __logging?.config.getLoggingEndpointTuple()[0]
+    metricsToken = __metrics?.config.getMetricsEndpointTuple()[1]
+    tracingToken = __tracing?.config.getTraceEndpointTuple()[1]
+    loggingToken = __logging?.config.getLoggingEndpointTuple()[1]
+    metricsFile = __metrics?.config.getMetricsEndpointTuple()[2]
+    tracingFile = __tracing?.config.getTraceEndpointTuple()[2]
+    loggingFile = __logging?.config.getLoggingEndpointTuple()[2]
+    expect(metricsUrl?.href).toBe("devnull:")
+    expect(tracingUrl?.href).toBe("devnull:")
+    expect(loggingUrl?.href).toBe("devnull:")
+    expect(metricsToken).toBeUndefined()
+    expect(tracingToken).toBeUndefined()
+    expect(loggingToken).toBeUndefined()
+    expect(metricsFile).toBe("/tmp/file1")
+    expect(tracingFile).toBe("/tmp/file2")
+    expect(loggingFile).toBe("/tmp/file3")
+
+    expect(await changeSignalConnection("metrics", { endpoint: new URL("file:///tmp/file1") })).toBe(false)
+    expect(await changeSignalConnection("tracing", { endpoint: new URL("file:///tmp/file1") })).toBe(false)
+    expect(await changeSignalConnection("logging", { endpoint: new URL("file:///tmp/file1") })).toBe(false)
+
+    expect(await changeSignalConnection("metrics", { })).toBe(false)
+    expect(await changeSignalConnection("tracing", { })).toBe(false)
+    expect(await changeSignalConnection("logging", { })).toBe(false)
+})
+
+test("test new logging APIs", async () => {
+    const config = new Configuration()
+        .setMetricsEndpoint(new URL("console:"))
+        .setTraceEndpoint(new URL("console:"))
+        .setLoggingEndpoint(new URL("console:"))
     const attributes = new ResourceAttributes("test_service", "0.0.1")
 
     // Before Init
     const before = await changeSignalConnection("metrics", { endpoint: new URL("devnull:") })
     expect(before).toBe(false)
 
-    initializeTelemetry(config, attributes, ["metrics", "tracing"])
+    expect(getATelLogger()).toBeUndefined()
+    expect(sendEvent({eventName: "testEvent", payload: { "key": "value" }, attributes: {}})).toBeFalsy()
 
-    var metricsUrl = __metrics?.config.getMetricsEndpointTuple()[0]
-    var tracingUrl = __tracing?.config.getTraceEndpointTuple()[0]
-    var metricsToken = __metrics?.config.getMetricsEndpointTuple()[1]
-    var tracingToken = __tracing?.config.getTraceEndpointTuple()[1]
-    var metricsFile = __metrics?.config.getMetricsEndpointTuple()[2]
-    var tracingFile = __tracing?.config.getTraceEndpointTuple()[2]
-    expect(metricsUrl?.href).toBe("console:")
-    expect(tracingUrl?.href).toBe("console:")
-    expect(metricsToken).toBeUndefined()
-    expect(tracingToken).toBeUndefined()
-    expect(metricsFile).toBeUndefined()
-    expect(tracingFile).toBeUndefined()
-
-    await changeSignalConnection("metrics", { endpoint: new URL("devnull:") })
-    await changeSignalConnection("tracing", { endpoint: new URL("devnull:") })
-    metricsUrl = __metrics?.config.getMetricsEndpointTuple()[0]
-    tracingUrl = __tracing?.config.getTraceEndpointTuple()[0]
-    expect(metricsUrl?.href).toBe("devnull:")
-    expect(tracingUrl?.href).toBe("devnull:")
-
-    await changeSignalConnection("metrics", { authToken: "newAuth1" })
-    await changeSignalConnection("tracing", { authToken: "newAuth2" })
-    metricsUrl = __metrics?.config.getMetricsEndpointTuple()[0]
-    tracingUrl = __tracing?.config.getTraceEndpointTuple()[0]
-    metricsToken = __metrics?.config.getMetricsEndpointTuple()[1]
-    tracingToken = __tracing?.config.getTraceEndpointTuple()[1]
-    expect(metricsUrl?.href).toBe("devnull:")
-    expect(tracingUrl?.href).toBe("devnull:")
-    expect(metricsToken).toBe("newAuth1")
-    expect(tracingToken).toBe("newAuth2")
-
-    await changeSignalConnection("metrics", { certFile: "/tmp/file1" })
-    await changeSignalConnection("tracing", { certFile: "/tmp/file2" })
-    metricsUrl = __metrics?.config.getMetricsEndpointTuple()[0]
-    tracingUrl = __tracing?.config.getTraceEndpointTuple()[0]
-    metricsToken = __metrics?.config.getMetricsEndpointTuple()[1]
-    tracingToken = __tracing?.config.getTraceEndpointTuple()[1]
-    metricsFile = __metrics?.config.getMetricsEndpointTuple()[2]
-    tracingFile = __tracing?.config.getTraceEndpointTuple()[2]
-    expect(metricsUrl?.href).toBe("devnull:")
-    expect(tracingUrl?.href).toBe("devnull:")
-    expect(metricsToken).toBeUndefined()
-    expect(tracingToken).toBeUndefined()
-    expect(metricsFile).toBe("/tmp/file1")
-    expect(tracingFile).toBe("/tmp/file2")
-
-    expect(await changeSignalConnection("metrics", { endpoint: new URL("file:///tmp/file1") })).toBe(false)
-    expect(await changeSignalConnection("tracing", { endpoint: new URL("file:///tmp/file1") })).toBe(false)
-
-    expect(await changeSignalConnection("metrics", { })).toBe(false)
+    initializeTelemetry(config, attributes, ["logging"])
+    expect(getATelLogger()).toBeDefined()
+    expect(sendEvent({eventName: "testEvent", payload: { "key": "value" }, attributes: {}})).toBeTruthy()
 })

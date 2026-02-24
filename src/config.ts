@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 Anaconda, Inc
+// SPDX-FileCopyrightText: 2025-2026 Anaconda, Inc
 // SPDX-License-Identifier: Apache-2.0
 
 
@@ -27,10 +27,14 @@ export type EndpointTuple = [URL, string | undefined, string | undefined]
  * - `ATEL_TRACE_ENDPOINT`
  * - `ATEL_TRACE_AUTH_TOKEN`
  * - `ATEL_TRACE_TLS_PRIVATE_CA_CERT_FILE`
+ * - `ATEL_LOGGING_ENDPOINT`
+ * - `ATEL_LOGGING_AUTH_TOKEN`
+ * - `ATEL_LOGGING_TLS_PRIVATE_CA_CERT_FILE`
  * - `ATEL_USE_CONSOLE` (to route ALL OTEL signals to console output, this is not a per signal type flag)
  * - `ATEL_METRICS_EXPORT_INTERVAL_MS` (to set the interval for metrics export, default is 60000ms, minumum is 1000ms)
  * - `ATEL_TRACES_EXPORT_INTERVAL_MS` (to set the interval for metrics export, default is 60000ms, minumum is 1000ms)
-* - `ATEL_SKIP_INTERNET_CHECK` (to skip the internet connectivity check, use "true" or "yes" or "1" to skip)
+ * - `ATEL_LOGGING_EXPORT_INTERVAL_MS` (to set the interval for logging export, default is 60000ms, minumum is 1000ms)
+ * - `ATEL_SKIP_INTERNET_CHECK` (to skip the internet connectivity check, use "true" or "yes" or "1" to skip)
  * - `ATEL_TRACING_SESSION_ENTROPY` (to set the entropy for the tracing session, used to generate unique session IDs)
  * - `ATEL_USE_CUMULATIVE_METRICS` (This will set CUMULATIVE for counter and histogram metrics instead of the default DELTA)
  *
@@ -106,13 +110,26 @@ export class Configuration {
     /**
      * Set a trace endpoint to the configuration, overriding any previous endpoints.
      *
-     * @param endpoint - The URL of the metrics endpoint.
+     * @param endpoint - The URL of the traceing endpoint.
      * @param authToken - Optional authentication token for the endpoint.
      * @param certFile - Optional path to a certificate file for secure connections.
      * @returns The current instance for method chaining.
      */
     public setTraceEndpoint(endpoint: URL, authToken?: string, certFile?: string): this {
         this._impl.traceEndpoint = [endpoint, authToken, certFile]
+        return this
+    }
+
+    /**
+     * Set a logging endpoint to the configuration, overriding any previous endpoints.
+     *
+     * @param endpoint - The URL of the logging endpoint.
+     * @param authToken - Optional authentication token for the endpoint.
+     * @param certFile - Optional path to a certificate file for secure connections.
+     * @returns The current instance for method chaining.
+     */
+    public setLoggingEndpoint(endpoint: URL, authToken?: string, certFile?: string): this {
+        this._impl.loggingEndpoint = [endpoint, authToken, certFile]
         return this
     }
 
@@ -158,6 +175,21 @@ export class Configuration {
             throw new Error("*** Trace export interval must be at least 100ms")
         }
         this._impl.tracesExportIntervalMs = value
+        return this
+    }
+
+    /**
+     * Sets the interval, in milliseconds, at which logs are exported.
+     *
+     * @param value - The export interval in milliseconds. Must be at least 1000ms.
+     * @returns The current instance for method chaining.
+     * @throws {Error} If the provided value is less than 1000ms.
+     */
+    public setLoggingExportIntervalMs(value: number): this {
+        if (value < 1000) {
+            throw new Error("*** Logging export interval must be at least 100ms")
+        }
+        this._impl.loggingExportIntervalMs = value
         return this
     }
 
@@ -246,16 +278,19 @@ export class InternalConfiguration {
         return value === undefined || value === null || value === '' || value === 'undefined' || value === 'null'
     }
 
-
+    public static readonly devnullUrl: URL = new URL("devnull:")
     public static readonly consoleUrl: URL = new URL("console:")
     public static readonly defaultUrl: URL = new URL("grpc://localhost:4317/")
+    public static readonly nullEndpoint: EndpointTuple = [this.devnullUrl, undefined, undefined]
 
     public defaultEndpoint: EndpointTuple = [InternalConfiguration.defaultUrl, undefined, undefined]
-    public metricsEndpoint: EndpointTuple | undefined  = [InternalConfiguration.defaultUrl, undefined, undefined]
-    public traceEndpoint: EndpointTuple | undefined = [InternalConfiguration.defaultUrl, undefined, undefined]
+    public metricsEndpoint: EndpointTuple = InternalConfiguration.nullEndpoint
+    public traceEndpoint: EndpointTuple = InternalConfiguration.nullEndpoint
+    public loggingEndpoint: EndpointTuple = InternalConfiguration.nullEndpoint
     public useConsole: boolean = false
     public metricsExportIntervalMs: number = 60000 // Default to 60 seconds
     public tracesExportIntervalMs: number = 60000 // Default to 60 seconds
+    public loggingExportIntervalMs: number = 60000 // Default to 60 seconds
     public skipInternetCheck: boolean = false
     public entropy: string = ""
     public useDebug: boolean = false
@@ -295,7 +330,7 @@ export class InternalConfiguration {
                 endpoint[2] = process.env.ATEL_METRICS_TLS_PRIVATE_CA_CERT_FILE
             }
             return endpoint
-        } else if (this.metricsEndpoint === undefined) {
+        } else if (this.metricsEndpoint === InternalConfiguration.nullEndpoint) {
             return this.getDefaultEndpointTuple()
         } else {
             return this.metricsEndpoint!
@@ -316,10 +351,31 @@ export class InternalConfiguration {
                 endpoint[2] = process.env.ATEL_TRACE_TLS_PRIVATE_CA_CERT_FILE
             }
             return endpoint
-        } else if (this.traceEndpoint === undefined) {
+        } else if (this.traceEndpoint === InternalConfiguration.nullEndpoint) {
             return this.getDefaultEndpointTuple()
         } else {
             return this.traceEndpoint
+        }
+    }
+
+    public getLoggingEndpointTuple(): EndpointTuple {
+        if (this.getUseConsole()) {
+            return InternalConfiguration.consoleTuple
+        } else if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_LOGGING_ENDPOINT)) {
+            var def: EndpointTuple = this.getDefaultEndpointTuple()
+            var endpoint: EndpointTuple = [def[0], def[1], def[2]]
+            endpoint[0] = new URL(process.env.ATEL_LOGGING_ENDPOINT as string)
+            if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_LOGGING_AUTH_TOKEN)) {
+                endpoint[1] = process.env.ATEL_LOGGING_AUTH_TOKEN
+            }
+            if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_LOGGING_TLS_PRIVATE_CA_CERT_FILE)) {
+                endpoint[2] = process.env.ATEL_LOGGING_TLS_PRIVATE_CA_CERT_FILE
+            }
+            return endpoint
+        } else if (this.loggingEndpoint === InternalConfiguration.nullEndpoint) {
+            return this.getDefaultEndpointTuple()
+        } else {
+            return this.loggingEndpoint
         }
     }
 
@@ -345,6 +401,18 @@ export class InternalConfiguration {
             return value
         }
         return this.tracesExportIntervalMs
+    }
+
+    public getLoggingExportIntervalMs(): number {
+        if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_LOGGING_EXPORT_INTERVAL_MS)) {
+            var str = process.env.ATEL_LOGGING_EXPORT_INTERVAL_MS as string
+            var value = parseInt(str, 10)
+            if (isNaN(value) || value < 1000) {
+                return this.loggingExportIntervalMs // Default internal storage milliseconds if invalid.
+            }
+            return value
+        }
+        return this.loggingExportIntervalMs
     }
 
     public getSkipInternetCheck(): boolean {
