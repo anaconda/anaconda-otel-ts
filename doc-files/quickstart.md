@@ -55,7 +55,7 @@ A default endpoint must be passed either to the constructor. It is the only valu
 
 For debugging purposes the enpoint(s) may be set to "console:" in configuration, or use the ATEL_USE_CONSOLE=1 environment variable to bypass sending to a collector and instead dumping to the console. This flag is also exposed in the `Configuration` class via the `setUseConsoleOutput` method.
 
-### Metric and Tracing Configuration
+### Metric, Tracing and Logging Configuration
 If your use case requires different schemes/TLS settings, auth tokens, or CA certs for different signal types: you can pass varying auth token and cert file parameters to the endpoint setter. The function signature is:
 
 `Configuration.setTraceEndpoint(endpoint: URL, authToken?: string | undefined, certFile?: string | undefined): Configuration`
@@ -94,12 +94,14 @@ import {
     decrementCounter,
     incrementCounter,
     initializeTelemetry,
-    reinitializeTelemetry,
     recordHistogram,
     ResourceAttributes,
-    traceBlock,
-    ASpan
-} from "./index"
+    changeSignalConnection,
+    getTrace,
+    flushAllSignals,
+    sendEvent,
+    getATelLogger
+} from "./index.js"
 
 const config = new Configuration(new URL("example.com:4317/v1/metrics"))
 const attributes = new ResourceAttributes("service-a", "v1")
@@ -121,12 +123,14 @@ import {
     decrementCounter,
     incrementCounter,
     initializeTelemetry,
-    reinitializeTelemetry,
     recordHistogram,
     ResourceAttributes,
-    traceBlock,
-    ASpan
-} from "./index"
+    changeSignalConnection,
+    getTrace,
+    flushAllSignals,
+    sendEvent,
+    getATelLogger
+} from "./index.js"
 
 const config = new Configuration(new URL("example.com:4317/v1/metrics"))
     .setMetricsEndpoint("example.com:4317/v1/metrics", "aOt5Y7...", undefined)
@@ -277,6 +281,54 @@ characters are allowed.
 
 With telemetry initialized, your application will now export traces and metrics to the configured OpenTelemetry
 Collector endpoints.
+
+## Record Logs and Simple Log Events
+
+<span style="color: red; background-color: yellow; font-style: italic; font-weight: bold; font-size: large">
+Note: At the time of this writing there is not a public logging endpoint for log collection.
+</span>
+
+Logging is what it sounds like and most are familiar with, log message to denote points of interest, warning, and errors.
+However with OTel, there is one other type of message unrelated to traditional log messages. These are called log events.
+In a way, these are a 4th type of signal but OTel mapped them into the Logging mechanism simply becuse they are very simple
+compared to traces and metrics. Logging is simple, since there is not stock logger built into Typescript, a very simple and
+hopefully familar interface is used. Get a logger by calling [`getATelLogger()`](../functions/index.getATelLogger.html) then call one of the log level functions:
+
+```typescript
+import {
+  getATelLogger
+} from "./index.js"
+
+let log = getATelLogger()
+log.debug({message: "message string", attributes: {} }) // attributes are optional and may be ommitted.
+log.error({message: "error string"}) // attributes are optional and may be ommitted.
+```
+
+There are of course all the regular log level: trace, debug, info, warn, error, fatal.
+
+In addition the log object can be used to send log events as well. The object exposes a [`sendEvent(...)`](../interfaces/index.ATelLogger.html) method.
+
+For those not needing or wanting the full logger, there is also a global [`sendEvent(...)`](../functions/index.sendEvent.html)
+
+### SendEvent Log Type
+The OTel logging signal supplies a method where a named event with an arbitrary payload can be sent. This is the
+simplest method of telemetry that is used and is musch simpler than the `metrics` or `tracing` signals. An example would be:
+
+```typescript
+import {
+  sendEvent
+} from "./index.js"
+
+// ...must initialze with the 'logging' signal, then...
+
+sendEvent({eventName: "RANDOM_EVENT", payload: {
+  "any": "json",
+  "payload": "here",
+  "including": {
+    "nested": "content"
+  }
+}, attributes: {}}) // attributes are optional.
+```
 
 ## Notes on Resource Attributes
 No particular attribute values are required for the class from clients besides `serviceName` and `serviceVersion` at

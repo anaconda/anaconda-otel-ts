@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 Anaconda, Inc
+// SPDX-FileCopyrightText: 2025-2026 Anaconda, Inc
 // SPDX-License-Identifier: Apache-2.0
 
 import * as fs from 'fs';
@@ -92,6 +92,10 @@ export class AnacondaCommon {
         return this.config.getMetricsExportIntervalMs()
     }
 
+    protected get loggingExportIntervalMs(): number {
+        return this.config.getLoggingExportIntervalMs()
+    }
+
     protected get skipInternetCheck(): boolean {
         return this.config.getSkipInternetCheck()
     }
@@ -101,24 +105,24 @@ export class AnacondaCommon {
             try {
                 return fs.readFileSync(certFile, 'utf8')
             } catch (error) {
-                this.error(`Failed to read certificate file: ${certFile}: ${error}`)
+                this._error(`Failed to read certificate file: ${certFile}: ${error}`)
                 return undefined
             }
         }
         return undefined
     }
 
-    protected debug(line: string) {
+    protected _debug(line: string) {
         if (this.config.getUseDebug()) {
             console.debug(`${localTimeString()} > *** ATEL DEBUG: ${line}`)
         }
     }
 
-    protected warn(line: string) {
+    protected _warn(line: string) {
         console.warn(`${localTimeString()} > *** ATEL ERROR: ${line}`)
     }
 
-    protected error(line: string) {
+    protected _error(line: string) {
         console.error(`${localTimeString()} > *** ATEL WARNING: ${line}`)
     }
 

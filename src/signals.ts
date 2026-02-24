@@ -1,10 +1,12 @@
-// SPDX-FileCopyrightText: 2025 Anaconda, Inc
+// SPDX-FileCopyrightText: 2025-2026 Anaconda, Inc
 // SPDX-License-Identifier: Apache-2.0
 
 import { Configuration } from './config.js';
 import { ResourceAttributes } from './attributes.js';
 import { AnacondaMetrics, CounterArgs, HistogramArgs } from './metrics.js';
 import { AnacondaTrace } from './traces.js';
+import { AnacondaLogging, type ATelLogger, EventArgs } from './logging.js';
+
 import { localTimeString as lts } from './common.js';
 import { type AttrMap, type CarrierMap, type ASpan, TraceArgs } from './types.js';
 
@@ -12,16 +14,18 @@ import {
   __initialized,
   __metrics,
   __tracing,
+  __logging,
   __setInitialized,
   __setMetrics,
   __setTracing,
+  __setLogging
 } from './signals-state.js';
 
 
 /**
  * Possible signals used in this API.
  */
-export type Signal = 'metrics' | 'tracing';
+export type Signal = 'metrics' | 'tracing' | 'logging';
 
 /**
  * Initializes telemetry signals such as metrics and traces based on the provided configuration.
@@ -54,12 +58,15 @@ export function initializeTelemetry(config: Configuration,
             case "tracing":
                 __setTracing(new AnacondaTrace(config, attributes))
                 break
+            case "logging":
+                __setLogging(new AnacondaLogging(config, attributes))
+                break;
             // default:
             //     console.warn(`${lts()} > *** WARNING: Unknown signal type: ${signalType}`)
             //     break
         }
     }
-    if (!__metrics && !__tracing) {
+    if (!__metrics && !__tracing && !__logging) {
         console.warn(`${lts()} > *** WARNING: No telemetry signals initialized. Ensure at least one signal type is specified.`)
         return false
     }
@@ -71,7 +78,7 @@ export function initializeTelemetry(config: Configuration,
 /**
  * Function used to change the endpoint or authorization token or both for a signal type.
  *
- * @param signal - Either 'metrics' or 'tracing' to select which connection to change.
+ * @param signal - Either 'metrics', 'tracing', or 'logging' to select which connection to change.
  * @param args - Arguments object of possible connection changes. Must have ___at least___ one that is defined.
  * @param args.endpoint - The new endpoint for the specific signal.
  * @param args.authToken - The new authorization token for the connection to use.
@@ -100,8 +107,10 @@ export async function changeSignalConnection(signal: Signal, args:
     }
     if (signal === 'metrics') {
         return await __metrics?.changeConnection(args.endpoint, args.authToken, args.certFile, args.userId) ?? false
-    } else {
+    } else if (signal === 'tracing') {
         return await __tracing?.changeConnection(args.endpoint, args.authToken, args.certFile, args.userId) ?? false
+    } else {
+        return await __logging?.changeConnection(args.endpoint, args.authToken, args.certFile, args.userId) ?? false
     }
 }
 
@@ -248,10 +257,63 @@ export function getTrace(name: string, args: {
  * as warnings instead of crashing the application, matching the Python SDK behavior.
  */
 export async function flushAllSignals(): Promise<void> {
-    // Flush all signals in parallel and wait for all to complete
-    // Errors are caught and logged by the individual flush methods
     await Promise.all([
         __tracing?.flush(),
-        __metrics?.flush()
+        __metrics?.flush(),
+        __logging?.flush()
     ].filter(Boolean))
+}
+
+/**
+ * This returns a singleton logger use to log events and regular logging message to OTel.
+ *
+ * @remarks
+ * This method does not throw any known exceptions.
+ *
+ * @returns The ATelLogger object if logging is initialized, otherwise 'undefined'.
+ */
+export function getATelLogger(): ATelLogger | undefined {
+    if (!__logging) {
+        console.warn("*** WARNING: Logging is not initialized. Call initializeTelemetry first.")
+        return undefined
+    }
+    return __logging.getLogger()
+}
+
+/**
+ * Use this method to send named events to the OTel collector as logging message. Do not use
+ * a name of '__LOG__', as this is uised for regular logging messages for debug.
+ *
+ * @param args.eventName - The name of the event being sent. Sending "" causes no errors but
+ *                         would be meaningless on the collector side.
+ * @param args.payload - Any Record<string,any> that will be converted to a JSON string
+ *                       payload to send to the collector.
+ * @param args.attributes - Attributes payload to attach to the log message.
+ *
+ * @remarks
+ * This method does not throw any known exceptions.
+ *
+ * @example
+ * ```typescript
+ * sendEvent({
+ *      name: "LOGGED_IN",
+ *      payload: {
+ *          key1: "",
+ *          key2: {
+ *              subKey1: ""
+ *          }
+ *      },
+ *      attributes: {}
+ * })
+ * ```
+ * @returns false if the logging is NOT initialized, true if the send attempt was successful.
+ *          Actual sending happens in the background asynchonously.
+ */
+export function sendEvent(args: EventArgs): boolean {
+    if (!__logging) {
+        console.warn("*** WARNING: Logging is not initialized. Call initializeTelemetry first.")
+        return false
+    }
+    __logging.sendEvent(args)
+    return true
 }

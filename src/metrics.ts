@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 Anaconda, Inc
+// SPDX-FileCopyrightText: 2025-2026 Anaconda, Inc
 // SPDX-License-Identifier: Apache-2.0
 
 import { type AttrMap } from './types.js';
@@ -115,11 +115,11 @@ export class AnacondaMetrics extends AnacondaCommon {
 
     recordHistogram(args: HistogramArgs): boolean {
         if (!this.meter) {
-            this.warn("Meter is not initialized properly. Ensure that the AnacondaMetrics instance is properly set up.")
+            this._warn("Meter is not initialized properly. Ensure that the AnacondaMetrics instance is properly set up.")
             return false
         }
         if (!this.isValidName(args.name)) {
-            this.warn(`Metric name '${args.name}' is not a valid name (^[A-Za-z][A-Za-z_0-9]+$).`)
+            this._warn(`Metric name '${args.name}' is not a valid name (^[A-Za-z][A-Za-z_0-9]+$).`)
             return false
         }
         var histogram = this.getHistogram(args.name)
@@ -129,11 +129,11 @@ export class AnacondaMetrics extends AnacondaCommon {
 
     incrementCounter(args: CounterArgs): boolean {
         if (!this.meter) {
-            this.warn("Meter is not initialized properly. Ensure that the AnacondaMetrics instance is properly set up.")
+            this._warn("Meter is not initialized properly. Ensure that the AnacondaMetrics instance is properly set up.")
             return false
         }
         if (!this.isValidName(args.name)) {
-            this.warn(`Metric name '${args.name}' is not a valid name (^[A-Za-z][A-Za-z_0-9]+$).`)
+            this._warn(`Metric name '${args.name}' is not a valid name (^[A-Za-z][A-Za-z_0-9]+$).`)
             return false
         }
         var [counter, isUpDown] = this.getCounter(args.name, args.forceUpDownCounter!)
@@ -144,16 +144,16 @@ export class AnacondaMetrics extends AnacondaCommon {
 
     decrementCounter(args: CounterArgs): boolean {
         if (!this.meter) {
-            this.warn("Meter is not initialized properly. Ensure that the AnacondaMetrics instance is properly set up.")
+            this._warn("Meter is not initialized properly. Ensure that the AnacondaMetrics instance is properly set up.")
             return false
         }
         if (!this.isValidName(args.name)) {
-            this.warn(`Metric name '${args.name}' is not a valid name (^[A-Za-z][A-Za-z_0-9]+$).`)
+            this._warn(`Metric name '${args.name}' is not a valid name (^[A-Za-z][A-Za-z_0-9]+$).`)
             return false
         }
         var [counter, isUpDown] = this.getCounter(args.name, true)
         if (isUpDown === false) {
-            this.warn(`Metric name '${args.name}' is not a UpDownCounter, decrement is not allowed.`)
+            this._warn(`Metric name '${args.name}' is not a UpDownCounter, decrement is not allowed.`)
             return false
         }
         let by: number = args.by ? -Math.abs(args.by!) : -1;
@@ -168,7 +168,7 @@ export class AnacondaMetrics extends AnacondaCommon {
         } catch (error) {
             // Log export failures instead of crashing the application
             // This matches Python SDK behavior where export failures are logged
-            this.warn(`Metric export failed: ${this.errorMessage(error)}`)
+            this._warn(`Metric export failed: ${this.errorMessage(error)}`)
         }
     }
 
@@ -198,13 +198,13 @@ export class AnacondaMetrics extends AnacondaCommon {
         } else if (scheme === 'devnull:') {
             exporter = new NoopMetricExporter()
         } else {
-            this.warn(`Received bad scheme for metrics: ${scheme}!`)
+            this._warn(`Received bad scheme for metrics: ${scheme}!`)
         }
         return exporter
     }
 
     private makeReader(scheme: string, url: URL, httpHeaders: Record<string,string>, creds?: ChannelCredentials): PeriodicExportingMetricReader | undefined {
-        this.debug(`Creating Reader for endpoint type '${scheme}'.`)
+        this._debug(`Creating Reader for endpoint type '${scheme}'.`)
         var exporter = this.makeExporter(scheme, url, httpHeaders, creds)
         if (exporter === undefined) {
             return undefined
@@ -224,7 +224,7 @@ export class AnacondaMetrics extends AnacondaCommon {
             if (certContent) {
                 creds = ChannelCredentials.createSsl(Buffer.from(certContent))
             } else {
-                this.warn(`Failed to read certificate file: ${certFile}`)
+                this._warn(`Failed to read certificate file: ${certFile}`)
             }
         }
         return creds
@@ -248,12 +248,12 @@ export class AnacondaMetrics extends AnacondaCommon {
             this.meterProvider = new MeterProvider({ readers: [this.reader!], resource: this.resources })
             this.meter = this.meterProvider.getMeter(this.serviceName, this.serviceVersion)
             if (this.meter) {
-                this.debug("Meter created successfully.")
+                this._debug("Meter created successfully.")
             } else {
-                this.warn("Meter was not created!")
+                this._warn("Meter was not created!")
             }
         } else {
-            this.warn("Periodic Metric Reader was not created!")
+            this._warn("Periodic Metric Reader was not created!")
         }
     }
 
