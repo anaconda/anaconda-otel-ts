@@ -231,7 +231,7 @@ export class AnacondaLogging extends AnacondaCommon implements ATelLogger {
             logs.setGlobalLoggerProvider(this.provider!);
             this._logger = logs.getLogger(this.attributes.getServiceName())
         } else {
-            console.warn('Failed to create a batch processor for tracing!')
+            console.warn('Failed to create a batch processor for logging!')
         }
     }
 

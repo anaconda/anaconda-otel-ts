@@ -35,6 +35,11 @@ export class TraceArgs {
 }
 
 /**
+ * Possible signals used in this API.
+ */
+export type Signal = 'metrics' | 'tracing' | 'logging';
+
+/**
  * This is the tracing context used for tracing both in and out of a process.
  */
 export interface ASpan {

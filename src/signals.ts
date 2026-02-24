@@ -8,7 +8,7 @@ import { AnacondaTrace } from './traces.js';
 import { AnacondaLogging, type ATelLogger, EventArgs } from './logging.js';
 
 import { localTimeString as lts } from './common.js';
-import { type AttrMap, type CarrierMap, type ASpan, TraceArgs } from './types.js';
+import { type AttrMap, type CarrierMap, type ASpan, TraceArgs, type Signal } from './types.js';
 
 import {
   __initialized,
@@ -20,12 +20,6 @@ import {
   __setTracing,
   __setLogging
 } from './signals-state.js';
-
-
-/**
- * Possible signals used in this API.
- */
-export type Signal = 'metrics' | 'tracing' | 'logging';
 
 /**
  * Initializes telemetry signals such as metrics and traces based on the provided configuration.
