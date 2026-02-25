@@ -17,3 +17,5 @@ export {
     getATelLogger,
     sendEvent
 } from './signals.js';
+
+export { sdkVersion as ATEL_SDK_VERSION, schemaVersion as ATEL_SCHEMA_VERSION } from './__version__.js'
