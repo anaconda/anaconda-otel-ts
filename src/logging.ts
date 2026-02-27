@@ -191,6 +191,7 @@ export class AnacondaLogging extends AnacondaCommon implements ATelLogger {
         let severity = _conversionMap[level]
         let severityName = _nameMap[level]
         let updatedAttributes = this.makeEventAttributes(attributes)
+        updatedAttributes['log.event.name'] = name
         let record = {
             severityNumber: severity,
             severityText: severityName,

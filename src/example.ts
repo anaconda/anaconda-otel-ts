@@ -27,6 +27,8 @@ const TEST_METRICS: string = process.env.EXAMPLE_TEST_METRICS ?? "yes"
 const TEST_TRACES: string = process.env.EXAMPLE_TEST_TRACES ?? "yes"
 const TEST_LOGS: string = process.env.EXAMPLE_TEST_LOGS ?? "yes"
 
+const sleepMs = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 async function main() {
     const config = new Configuration(new URL("devnull:")) // NOTE: devnull is a No-Op exporter.
         .setMetricExportIntervalMs(1000)
@@ -52,8 +54,10 @@ async function main() {
     log?.trace({message: "TRACE"})
     log?.debug({message: "DEBUG"})
     log?.info({message: "INFO"})
+    await sleepMs(250)
     log?.warn({message: "WARN"})
     log?.error({message: "ERROR"})
+    await sleepMs(250)
     log?.fatal({message: "FATAL"})
 
     let parent = getTrace("topLevel")
@@ -101,8 +105,10 @@ async function main() {
     log?.trace({message: "TRACE #2"})
     log?.debug({message: "DEBUG #2"})
     log?.info({message: "INFO# #2"})
+    await sleepMs(250)
     log?.warn({message: "WARN #2"})
     log?.error({message: "ERROR #2"})
+    await sleepMs(250)
     log?.fatal({message: "FATAL #2"})
 
     if (TEST_METRICS === "yes") {
