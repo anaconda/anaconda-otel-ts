@@ -188,12 +188,10 @@ export class AnacondaLogging extends AnacondaCommon implements ATelLogger {
 
     private internalSendEvent(name: string, level: LogLevel, payloadStr: string, attributes?: AttrMap): void {
         if (this._logger == undefined) { console.warn("### ERROR: No Logger!!!"); return }
-        const now: Date = new Date()
         let severity = _conversionMap[level]
         let severityName = _nameMap[level]
         let updatedAttributes = this.makeEventAttributes(attributes)
         updatedAttributes['log.event.name'] = name
-        updatedAttributes['log.event.timestamp'] = now.toISOString()
         let record = {
             severityNumber: severity,
             severityText: severityName,
