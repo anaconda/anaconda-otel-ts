@@ -1,6 +1,41 @@
 # CHANGELOG
 We [keep a changelog.](http://keepachangelog.com/)
 
+## [v0.9.2] (2026-03-02) - [Features and Bug Fixes] Beta 3 Release
+
+### Added
+
+- Feature: Logging was added to the package for sending OTel logs to a collector.
+- Feature: Now export the ATEL_SDK_VERSION and ATEL_SCHEMA_VERSION as const so application can know at runtime what versions its using.
+
+### Deprecated
+
+- NA
+
+### Removed
+
+- NA
+
+### Fixed
+
+- One incorrect output string was corrected.
+
+### Security
+
+- NA
+
+### Tickets Closed
+
+- NA (No public generated issues)
+
+### Pull Requests Merged
+* [#90](https://github.com/anaconda/anaconda-otel-ts/pull/90) - [feat] Added timestamp of log to attributes. (2026-02-27)
+* [#89](https://github.com/anaconda/anaconda-otel-ts/pull/89) - [fix] logged message stated wrong signal, moved Signal def to types.ts. (2026-02-24)
+* [#88](https://github.com/anaconda/anaconda-otel-ts/pull/88) - [fix] Allow runtime version checks. (2026-02-25)
+* [#87](https://github.com/anaconda/anaconda-otel-ts/pull/87) - Starting logging (2026-02-24)
+* [#86](https://github.com/anaconda/anaconda-otel-ts/pull/86) - [release] Added release scripts and version stamping on release build. (2026-02-25)
+
+
 ## [v0.9.0] (2026-01-21) - [Features and Bug Fixes] Beta 2 Release
 
 ### Added
