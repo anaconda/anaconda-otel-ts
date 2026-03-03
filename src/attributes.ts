@@ -132,7 +132,7 @@ export class ResourceAttributes {
 
             // Check if it's a readonly field
             if (InternalResourceAttributes.readonlyFields.includes(key)) {
-                console.warn(`Attempted overwrite of readonly common attribute ${key}`);
+                // console.warn(`Attempted overwrite of readonly common attribute ${key}`);
                 continue;
             }
 
