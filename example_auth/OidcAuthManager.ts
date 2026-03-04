@@ -1,5 +1,13 @@
 import { Agent } from "undici";
 
+// Constants
+const DEFAULT_HTTP_PORT = 80;
+const DEFAULT_HTTPS_PORT = 443;
+const DEFAULT_SCOPE = "openid";
+const MAX_PROXY_RESPONSE_BUFFER_SIZE = 8192; // 8KB
+const PROXY_CONNECT_TIMEOUT_MS = 30000; // 30 seconds
+const PROXY_RESPONSE_TIMEOUT_MS = 10000; // 10 seconds
+
 /**
  * Represents a token set returned by the OIDC/OAuth2 provider.
  */
@@ -49,6 +57,10 @@ export interface OidcAuthConfig {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Enhanced ProxyTunnel class with proper timeout handling, resource cleanup,
+ * and buffer size limits for secure proxy connections.
+ */
 class ProxyTunnel {
   /**
    * Opens a CONNECT tunnel through an HTTP proxy and returns a raw TCP socket
@@ -66,64 +78,171 @@ class ProxyTunnel {
     const net = await import("net");
     const tls = await import("tls");
 
-    // 1. Open a plain TCP connection to the proxy.
-    const proxySocket = await new Promise<import("net").Socket>((resolve, reject) => {
-      const s = net.createConnection({ host: proxy.host, port: proxy.port }, () =>
-        resolve(s)
-      );
-      s.once("error", reject);
-    });
+    let proxySocket: import("net").Socket | undefined;
 
-    // 2. Send a CONNECT request to the proxy.
+    try {
+      // 1. Open a plain TCP connection to the proxy with timeout.
+      proxySocket = await ProxyTunnel.connectToProxy(net, proxy);
+
+      // 2. Send a CONNECT request to the proxy and wait for response.
+      await ProxyTunnel.sendConnectRequest(proxySocket, proxy, targetHost, targetPort);
+
+      if (!useTls) return proxySocket;
+
+      // 3. Upgrade the tunnel to TLS for HTTPS targets.
+      return await ProxyTunnel.upgradToTls(tls, proxySocket, targetHost);
+    } catch (error) {
+      // Clean up resources on error
+      if (proxySocket && !proxySocket.destroyed) {
+        proxySocket.destroy();
+      }
+      throw error;
+    }
+  }
+
+  private static async connectToProxy(
+    net: typeof import("net"),
+    proxy: ProxyConfig
+  ): Promise<import("net").Socket> {
+    return new Promise<import("net").Socket>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        socket.destroy();
+        reject(new AuthError(`Proxy connection timeout after ${PROXY_CONNECT_TIMEOUT_MS}ms`));
+      }, PROXY_CONNECT_TIMEOUT_MS);
+
+      const socket = net.createConnection(
+        { host: proxy.host, port: proxy.port },
+        () => {
+          clearTimeout(timeout);
+          resolve(socket);
+        }
+      );
+
+      socket.once("error", (error) => {
+        clearTimeout(timeout);
+        reject(new AuthError(`Failed to connect to proxy: ${error.message}`));
+      });
+
+      socket.once("close", () => {
+        clearTimeout(timeout);
+        reject(new AuthError("Proxy connection closed unexpectedly"));
+      });
+    });
+  }
+
+  private static async sendConnectRequest(
+    proxySocket: import("net").Socket,
+    proxy: ProxyConfig,
+    targetHost: string,
+    targetPort: number
+  ): Promise<void> {
     const authHeader = proxy.auth
       ? `Proxy-Authorization: Basic ${Buffer.from(
           `${proxy.auth.username}:${proxy.auth.password}`
         ).toString("base64")}\r\n`
       : "";
 
-    await new Promise<void>((resolve, reject) => {
-      proxySocket.write(
-        `CONNECT ${targetHost}:${targetPort} HTTP/1.1\r\nHost: ${targetHost}:${targetPort}\r\n${authHeader}\r\n`
-      );
+    return new Promise<void>((resolve, reject) => {
+      let responseTimeout: NodeJS.Timeout;
+      let buffer = Buffer.alloc(0);
+      let headersParsed = false;
 
-      let buf = "";
-      const onData = (chunk: Buffer) => {
-        buf += chunk.toString();
-        // The proxy response ends with a blank line.
-        if (!buf.includes("\r\n\r\n")) return;
+      const cleanup = () => {
+        clearTimeout(responseTimeout);
         proxySocket.off("data", onData);
+        proxySocket.off("error", onError);
+      };
 
-        const statusLine = buf.split("\r\n")[0];
-        const statusCode = parseInt(statusLine.split(" ")[1], 10);
-        if (statusCode === 200) {
-          resolve();
-        } else {
-          reject(
-            new AuthError(
-              `Proxy CONNECT failed: ${statusLine}`,
-              statusCode
-            )
-          );
+      const onData = (chunk: Buffer) => {
+        // Prevent buffer overflow attacks
+        if (buffer.length + chunk.length > MAX_PROXY_RESPONSE_BUFFER_SIZE) {
+          cleanup();
+          reject(new AuthError("Proxy response too large"));
+          return;
+        }
+
+        buffer = Buffer.concat([buffer, chunk]);
+        const response = buffer.toString();
+
+        // The proxy response headers end with \r\n\r\n
+        if (!headersParsed && response.includes("\r\n\r\n")) {
+          headersParsed = true;
+          cleanup();
+
+          const lines = response.split("\r\n");
+          const statusLine = lines[0];
+          const statusMatch = statusLine.match(/HTTP\/1\.[01]\s+(\d{3})/);
+
+          if (!statusMatch) {
+            reject(new AuthError("Invalid HTTP response from proxy"));
+            return;
+          }
+
+          const statusCode = parseInt(statusMatch[1], 10);
+          if (statusCode === 200) {
+            resolve();
+          } else {
+            reject(new AuthError(`Proxy CONNECT failed: ${statusLine}`, statusCode));
+          }
         }
       };
+
+      const onError = (error: Error) => {
+        cleanup();
+        reject(new AuthError(`Proxy connection error: ${error.message}`));
+      };
+
+      responseTimeout = setTimeout(() => {
+        cleanup();
+        reject(new AuthError(`Proxy response timeout after ${PROXY_RESPONSE_TIMEOUT_MS}ms`));
+      }, PROXY_RESPONSE_TIMEOUT_MS);
+
       proxySocket.on("data", onData);
-      proxySocket.once("error", reject);
+      proxySocket.once("error", onError);
+
+      // Send the CONNECT request
+      const connectRequest = `CONNECT ${targetHost}:${targetPort} HTTP/1.1\r\nHost: ${targetHost}:${targetPort}\r\n${authHeader}\r\n`;
+
+      if (!proxySocket.write(connectRequest)) {
+        cleanup();
+        reject(new AuthError("Failed to send CONNECT request to proxy"));
+      }
     });
+  }
 
-    if (!useTls) return proxySocket;
-
-    // 3. Upgrade the tunnel to TLS for HTTPS targets.
+  private static async upgradToTls(
+    tls: typeof import("tls"),
+    proxySocket: import("net").Socket,
+    targetHost: string
+  ): Promise<import("tls").TLSSocket> {
     return new Promise<import("tls").TLSSocket>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        tlsSocket.destroy();
+        reject(new AuthError(`TLS upgrade timeout after ${PROXY_CONNECT_TIMEOUT_MS}ms`));
+      }, PROXY_CONNECT_TIMEOUT_MS);
+
       const tlsSocket = tls.connect(
-        { socket: proxySocket, servername: targetHost },
-        () => resolve(tlsSocket)
+        {
+          socket: proxySocket,
+          servername: targetHost,
+          // Ensure proper certificate validation
+          rejectUnauthorized: true
+        },
+        () => {
+          clearTimeout(timeout);
+          resolve(tlsSocket);
+        }
       );
-      tlsSocket.once("error", reject);
+
+      tlsSocket.once("error", (error) => {
+        clearTimeout(timeout);
+        reject(new AuthError(`TLS connection failed: ${error.message}`));
+      });
     });
   }
 }
 
-class AuthError extends Error {
+export class AuthError extends Error {
   constructor(
     message: string,
     public readonly statusCode?: number,
@@ -144,6 +263,70 @@ interface TokenResponse {
   scope?: string;
 }
 
+/**
+ * Validates if an object matches the TokenResponse interface
+ */
+function isValidTokenResponse(obj: unknown): obj is TokenResponse {
+  if (typeof obj !== 'object' || obj === null) return false;
+
+  const response = obj as Record<string, unknown>;
+
+  return (
+    typeof response.access_token === 'string' &&
+    typeof response.refresh_token === 'string' &&
+    typeof response.token_type === 'string' &&
+    typeof response.expires_in === 'number' &&
+    response.expires_in > 0 &&
+    (response.refresh_expires_in === undefined ||
+     (typeof response.refresh_expires_in === 'number' && response.refresh_expires_in > 0)) &&
+    (response.scope === undefined || typeof response.scope === 'string')
+  );
+}
+
+/**
+ * Validates configuration parameters
+ */
+function validateConfig(config: OidcAuthConfig): void {
+  if (!config.tokenEndpoint?.trim()) {
+    throw new Error('Token endpoint URL is required');
+  }
+
+  try {
+    const url = new URL(config.tokenEndpoint);
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      throw new Error('Token endpoint must use HTTP or HTTPS protocol');
+    }
+  } catch (error) {
+    throw new Error(`Invalid token endpoint URL: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+
+  if (!config.clientId?.trim()) {
+    throw new Error('Client ID is required and cannot be empty');
+  }
+
+  if (config.clientSecret !== undefined && !config.clientSecret.trim()) {
+    throw new Error('Client secret cannot be empty when provided');
+  }
+
+  if (config.scope !== undefined && !config.scope.trim()) {
+    throw new Error('Scope cannot be empty when provided');
+  }
+
+  if (config.proxy) {
+    if (!config.proxy.host?.trim()) {
+      throw new Error('Proxy host is required when proxy is configured');
+    }
+    if (!Number.isInteger(config.proxy.port) || config.proxy.port < 1 || config.proxy.port > 65535) {
+      throw new Error('Proxy port must be a valid integer between 1 and 65535');
+    }
+    if (config.proxy.auth) {
+      if (!config.proxy.auth.username?.trim() || !config.proxy.auth.password?.trim()) {
+        throw new Error('Proxy auth username and password are both required when proxy auth is configured');
+      }
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Main class
 // ---------------------------------------------------------------------------
@@ -156,10 +339,13 @@ export class OidcAuthManager {
   private readonly proxy: ProxyConfig | undefined;
 
   constructor(config: OidcAuthConfig) {
+    // Validate configuration before storing
+    validateConfig(config);
+
     this.tokenEndpoint = config.tokenEndpoint;
     this.clientId = config.clientId;
     this.clientSecret = config.clientSecret;
-    this.scope = config.scope ?? "openid";
+    this.scope = config.scope ?? DEFAULT_SCOPE;
     this.proxy = config.proxy;
   }
 
@@ -238,9 +424,9 @@ export class OidcAuthManager {
     }
 
     // Parse the body regardless of status so we can forward server error details.
-    let body: Record<string, unknown>;
+    let body: unknown;
     try {
-      body = (await response.json()) as Record<string, unknown>;
+      body = await response.json();
     } catch {
       throw new AuthError(
         `Token endpoint returned a non-JSON response (HTTP ${response.status}).`,
@@ -249,10 +435,11 @@ export class OidcAuthManager {
     }
 
     if (!response.ok) {
-      const serverError = typeof body.error === "string" ? body.error : undefined;
+      const errorBody = body as Record<string, unknown>;
+      const serverError = typeof errorBody?.error === "string" ? errorBody.error : undefined;
       const description =
-        typeof body.error_description === "string"
-          ? body.error_description
+        typeof errorBody?.error_description === "string"
+          ? errorBody.error_description
           : undefined;
 
       // Provide a helpful, specific message for the most common error codes.
@@ -277,7 +464,15 @@ export class OidcAuthManager {
       throw new AuthError(message, response.status, serverError, description);
     }
 
-    return OidcAuthManager.parseTokenResponse(body as unknown as TokenResponse);
+    // Validate the successful response structure before parsing
+    if (!isValidTokenResponse(body)) {
+      throw new AuthError(
+        `Token endpoint returned invalid response structure (HTTP ${response.status}).`,
+        response.status
+      );
+    }
+
+    return OidcAuthManager.parseTokenResponse(body);
   }
 
   private async buildFetchOptions(params: URLSearchParams): Promise<RequestInit> {
@@ -299,10 +494,12 @@ export class OidcAuthManager {
     try {
       const url = new URL(this.tokenEndpoint);
       const useTls = url.protocol === "https:";
-      const targetPort = url.port ? parseInt(url.port, 10) : useTls ? 443 : 80;
+      const targetPort = url.port
+        ? parseInt(url.port, 10)
+        : useTls ? DEFAULT_HTTPS_PORT : DEFAULT_HTTP_PORT;
 
       const proxyAgent = new Agent({
-        connect: async (_opts: Record<string, unknown>, callback: Function) => {
+        connect: async (options: any, callback: any) => {
           try {
             const socket = await ProxyTunnel.connect(
               this.proxy!,
@@ -311,15 +508,15 @@ export class OidcAuthManager {
               useTls
             );
             // undici expects the raw socket handed back via callback(err, socket)
-            (callback as (err: null, socket: import("net").Socket) => void)(null, socket as import("net").Socket);
+            callback(null, socket);
           } catch (err) {
-            (callback as (err: Error) => void)(err as Error);
+            callback(err as Error);
           }
         },
-      } as ConstructorParameters<typeof Agent>[0]);
+      } as any);
 
-      // @ts-ignore — `dispatcher` is an undici-specific fetch extension not in the DOM types
-      return { ...base, dispatcher: proxyAgent };
+      // Use proper typing for undici dispatcher
+      return { ...base, dispatcher: proxyAgent } as RequestInit & { dispatcher: any };
     } catch {
       // undici not available — surface a clear error rather than silently ignoring the proxy.
       throw new AuthError(

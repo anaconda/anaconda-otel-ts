@@ -196,3 +196,6 @@ src/*.js
 
 # ignore .tmp folders
 **/.tmp
+
+# Others
+.claude/
