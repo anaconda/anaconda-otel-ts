@@ -3,6 +3,9 @@
 This section provides a quick guide to initialize and use the OpenTelemetry Python client for tracing and
 metrics using the provided configuration.
 
+## Before Using the Package...
+Making the decision on which signals to use is probably a first and important step. The guide [here](Signal Types.md) will help make that decision.
+
 ## Install the Package
 
 Install the OpenTelemetry Typescript telemetry package file replacing {version} with the actual M.m.p version number...
