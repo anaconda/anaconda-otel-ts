@@ -2,7 +2,12 @@
   "name": "Anaconda OpenTelemetry for Typescript",
   "entryPoints": ["src/index.ts"],
   "out": "docs",
-  "projectDocuments": ["doc-files/Quick Start.md", "doc-files/Signal Types.md", "doc-files/Baggage.md"],
+  "projectDocuments": [
+    "doc-files/Home Page.md",
+    "doc-files/Quick Start.md",
+    "doc-files/Signal Types.md",
+    "doc-files/Open Telemetry Baggage Concept.md"
+  ],
   "readme": "doc-files/Home Page.md",
   "tsconfig": "tsconfig.json"
 }
