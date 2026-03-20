@@ -176,6 +176,7 @@ export class AnacondaMetrics extends AnacondaCommon {
                          creds?: ChannelCredentials): PushMetricExporter | undefined {
         var urlStr = url.href
         var exporter: PushMetricExporter | undefined = undefined
+        console.debug(`Creating metrics exporter at endpoint ${urlStr}`)
         if (scheme === 'grpc:' || scheme === 'grpcs:') {
             urlStr = `${url.hostname}:${url.port}`
             exporter = new OTLPMetricExporterGRPC({
