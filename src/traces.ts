@@ -178,7 +178,7 @@ export class AnacondaTrace extends AnacondaCommon {
                          creds?: ChannelCredentials): SpanExporter | undefined {
         var exporter: SpanExporter | undefined = undefined
         var urlStr = url.href
-        console.debug(`Creating traces exporter at endpoint ${urlStr}`)
+        this._debug(`Creating traces exporter at endpoint ${urlStr}`)
         if (scheme === 'grpc:' || scheme === 'grpcs:') {
             urlStr = `${url.hostname}:${url.port}`
             exporter = new OTLPTraceExporterGRPC({
