@@ -265,13 +265,13 @@ export class AnacondaLogging extends AnacondaCommon implements ATelLogger {
                          creds?: ChannelCredentials): LogRecordExporter | undefined {
         var exporter: LogRecordExporter | undefined = undefined
         var urlStr = url.href
-        console.debug(`Creating log exporter at endpoint ${urlStr}`)
+        this._debug(`Creating log exporter at endpoint ${urlStr}`)
         if (scheme === 'grpc:' || scheme === 'grpcs:') {
             urlStr = `${url.hostname}:${url.port}`
             exporter = new OTLPLogExporterGRPC({
                 url: urlStr,
                 headers: httpHeaders,
-                 credentials: creds
+                credentials: creds
             });
         } else if (scheme === 'http:' || scheme === 'https:') {
             exporter = new OTLPLogExporterHTTP({

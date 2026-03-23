@@ -9,6 +9,7 @@ import { ResourceAttributes, InternalResourceAttributes } from '../../src/attrib
 import { AnacondaCommon } from '../../src/common';
 
 import { type Resource } from '@opentelemetry/resources'
+import type { OTLPExporterConfigBase } from '@opentelemetry/otlp-exporter-base';
 
 class TestImpl extends AnacondaCommon {
     public constructor(config: Configuration, attributes: ResourceAttributes) {
@@ -138,8 +139,10 @@ test("valid URL testing", ()=> {
         "http://localhost/v1/metrics",
         "http://localhost:2118/v1/logs",
         "http://127.0.0.1:2118/v1/traces",
+        "http://some-hyphenated.website.test:2118/v1/metrics",
         "https://some.website.test:2118/v1/metrics",
         "https://some.website.test/v1/metrics",
+        "https://some-hyphenated-url:2118/v1/metrics",
         "grpc://localhost/",
         "grpc://localhost:2118/",
         "grpc://127.0.0.1:2118/",
@@ -155,8 +158,6 @@ test("valid URL testing", ()=> {
     const negUrls = [
         "bad:",
         "http://localhost/",
-        "http://me/v1/metrics",
-        "http://me:2118/v1/logs",
         "http://256.0.0.1:2118/v1/traces",
         "https://some.website.test:2118/v2/metrics",
         "https://some.website.test:211834/v1/metrics",

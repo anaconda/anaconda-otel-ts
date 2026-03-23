@@ -13,22 +13,22 @@ beforeEach(() => {
     InternalConfiguration.__nextId = 0
 
     // Clear environment variables...
-    process.env.ATEL_USE_CONSOLE = undefined
-    process.env.ATEL_DEFAULT_ENDPOINT = undefined
-    process.env.ATEL_DEFAULT_AUTH_TOKEN = undefined
-    process.env.ATEL_DEFAULT_TLS_PRIVATE_CA_CERT_FILE = undefined
-    process.env.ATEL_METRICS_ENDPOINT = undefined
-    process.env.ATEL_METRICS_AUTH_TOKEN = undefined
-    process.env.ATEL_METRICS_TLS_PRIVATE_CA_CERT_FILE = undefined
-    process.env.ATEL_TRACE_ENDPOINT = undefined
-    process.env.ATEL_TRACE_AUTH_TOKEN = undefined
-    process.env.ATEL_TRACE_TLS_PRIVATE_CA_CERT_FILE = undefined
-    process.env.ATEL_METRICS_EXPORT_INTERVAL_MS = undefined
-    process.env.ATEL_TRACES_EXPORT_INTERVAL_MS = undefined
-    process.env.ATEL_SKIP_INTERNET_CHECK = undefined
-    process.env.ATEL_TRACING_SESSION_ENTROPY = undefined
-    process.env.ATEL_USE_DEBUG = undefined
-    process.env.ATEL_USE_CUMULATIVE_METRICS = undefined
+    delete process.env.ATEL_USE_CONSOLE
+    delete process.env.ATEL_DEFAULT_ENDPOINT
+    delete process.env.ATEL_DEFAULT_AUTH_TOKEN
+    delete process.env.ATEL_DEFAULT_TLS_PRIVATE_CA_CERT_FILE
+    delete process.env.ATEL_METRICS_ENDPOINT
+    delete process.env.ATEL_METRICS_AUTH_TOKEN
+    delete process.env.ATEL_METRICS_TLS_PRIVATE_CA_CERT_FILE
+    delete process.env.ATEL_TRACE_ENDPOINT
+    delete process.env.ATEL_TRACE_AUTH_TOKEN
+    delete process.env.ATEL_TRACE_TLS_PRIVATE_CA_CERT_FILE
+    delete process.env.ATEL_METRICS_EXPORT_INTERVAL_MS
+    delete process.env.ATEL_TRACES_EXPORT_INTERVAL_MS
+    delete process.env.ATEL_SKIP_INTERNET_CHECK
+    delete process.env.ATEL_TRACING_SESSION_ENTROPY
+    delete process.env.ATEL_USE_DEBUG
+    delete process.env.ATEL_USE_CUMULATIVE_METRICS
 })
 
 test("Verify Initial State", () => {
@@ -151,9 +151,9 @@ test("Verify setting and looping through metrics endpoints", () => {
     expect(tuple[1]).toBe("Metrics_Token")
     expect(tuple[2]).toBe("/tmp/metrics.pem")
 
-    process.env.ATEL_METRICS_ENDPOINT = undefined
-    process.env.ATEL_METRICS_AUTH_TOKEN = undefined
-    process.env.ATEL_METRICS_TLS_PRIVATE_CA_CERT_FILE = undefined
+    delete process.env.ATEL_METRICS_ENDPOINT
+    delete process.env.ATEL_METRICS_AUTH_TOKEN
+    delete process.env.ATEL_METRICS_TLS_PRIVATE_CA_CERT_FILE
 
     config.setMetricsEndpoint(new URL("https://metrics3.mydomain.com:4567"), "Metrics_Token", "/tmp/metrics.pem")
     tuple = impl.getMetricsEndpointTuple()
@@ -191,9 +191,9 @@ test("Verify setting and looping through trace endpoints", () => {
     expect(tuple[1]).toBe("Trace_Token")
     expect(tuple[2]).toBe("/tmp/trace.pem")
 
-    process.env.ATEL_TRACE_ENDPOINT = undefined
-    process.env.ATEL_TRACE_AUTH_TOKEN = undefined
-    process.env.ATEL_TRACE_TLS_PRIVATE_CA_CERT_FILE = undefined
+    delete process.env.ATEL_TRACE_ENDPOINT
+    delete process.env.ATEL_TRACE_AUTH_TOKEN
+    delete process.env.ATEL_TRACE_TLS_PRIVATE_CA_CERT_FILE
 
     config.setTraceEndpoint(new URL("https://trace3.mydomain.com:4567"), "Trace_Token", "/tmp/trace.pem")
     tuple = impl.getTraceEndpointTuple()
@@ -231,9 +231,9 @@ test("Verify setting and looping through logging endpoints", () => {
     expect(tuple[1]).toBe("Logging_Token")
     expect(tuple[2]).toBe("/tmp/logging.pem")
 
-    process.env.ATEL_LOGGING_ENDPOINT = undefined
-    process.env.ATEL_LOGGING_AUTH_TOKEN = undefined
-    process.env.ATEL_LOGGING_TLS_PRIVATE_CA_CERT_FILE = undefined
+    delete process.env.ATEL_LOGGING_ENDPOINT
+    delete process.env.ATEL_LOGGING_AUTH_TOKEN
+    delete process.env.ATEL_LOGGING_TLS_PRIVATE_CA_CERT_FILE
 
     config.setLoggingEndpoint(new URL("https://logging3.mydomain.com:4567"), "Logging_Token", "/tmp/logging.pem")
     tuple = impl.getLoggingEndpointTuple()
@@ -340,7 +340,7 @@ test("Verify negative envonment variable for use console output", () => {
     expect(endpoint[0].toString()).toBe("https://mydomain.com:9876/")
     expect(endpoint[1]).toBeUndefined()
     expect(endpoint[2]).toBeUndefined()
-    process.env.ATEL_USE_CONSOLE = undefined
+    delete process.env.ATEL_USE_CONSOLE
     config.setUseConsoleOutput(false)
     expect(impl.useConsole).toBe(false)
     expect(impl.getDefaultEndpoint().toString()).toBe("https://mydomain.com:9876/")
