@@ -262,7 +262,7 @@ export class AnacondaCommon {
         if (h.length === 0 || h.length > 253) return false;
 
         const labels = h.includes(".") ? h.split(".").filter(l => l.length > 0) : [h];
-        if (labels.length === 0 /*|| labels.some(l => l.length === 0)*/) return false;
+        if (labels.length === 0) return false;
         const labelRe = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
         for (const label of labels) {
             if (!labelRe.test(label)) return false;
