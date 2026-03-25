@@ -8,6 +8,7 @@ import type { AttrMap } from './types.js';
 
 // value import (namespace gives us both ESM & CJS shapes)
 import * as resourcesNS from '@opentelemetry/resources';
+import { setGlobalDispatcher, ProxyAgent } from 'undici'
 
 // ---- v2 export OR v1 fallback to `new Resource(attrs)` ----
 const resourceFromAttributes =
@@ -119,11 +120,11 @@ export class AnacondaCommon {
     }
 
     protected _warn(line: string) {
-        console.warn(`${localTimeString()} > *** ATEL ERROR: ${line}`)
+        console.warn(`${localTimeString()} > *** ATEL WARNING: ${line}`)
     }
 
     protected _error(line: string) {
-        console.error(`${localTimeString()} > *** ATEL WARNING: ${line}`)
+        console.error(`${localTimeString()} > *** ATEL ERROR: ${line}`)
     }
 
     protected isValidName(name: string): boolean {
@@ -255,23 +256,20 @@ export class AnacondaCommon {
     private isValidDomain(host: string): boolean {
         // Conservative domain validation:
         // - labels: [a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?
-        // - at least one dot
         // - TLD 2-63 letters
         // - total length <= 253
         const h = host.toLowerCase();
         if (h.length === 0 || h.length > 253) return false;
-        if (!h.includes(".")) return false;
 
-        const labels = h.split(".");
-        if (labels.some(l => l.length === 0)) return false;
-
+        const labels = h.includes(".") ? h.split(".").filter(l => l.length > 0) : [h];
+        if (labels.length === 0) return false;
         const labelRe = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
         for (const label of labels) {
             if (!labelRe.test(label)) return false;
         }
 
         const tld = labels[labels.length - 1];
-        if (!/^[a-z]{2,63}$/.test(tld)) return false;
+        if (labels.length > 1 &&!/^[a-z]{2,63}$/.test(tld)) return false;
 
         return true;
     }

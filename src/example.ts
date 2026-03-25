@@ -3,6 +3,7 @@
 // SPDX-FileCopyrightText: 2025-2026 Anaconda, Inc
 // SPDX-License-Identifier: Apache-2.0
 
+import { diff } from "util";
 import {
     Configuration,
     decrementCounter,
@@ -21,8 +22,8 @@ import {
 import { type Signal } from "./types.js"
 
 const HOST: string = process.env.EXAMPLE_HOST ?? "localhost";
-const PORT1: string = process.env.EXAMPLE_PORT1 ?? "6318";
-const PORT2: string = process.env.EXAMPLE_PORT2 ?? "5318";
+const PORT1: string = process.env.EXAMPLE_PORT1 ?? "4318";
+const PORT2: string = process.env.EXAMPLE_PORT2 ?? "4318";
 const TEST_METRICS: string = process.env.EXAMPLE_TEST_METRICS ?? "yes"
 const TEST_TRACES: string = process.env.EXAMPLE_TEST_TRACES ?? "yes"
 const TEST_LOGS: string = process.env.EXAMPLE_TEST_LOGS ?? "yes"
@@ -37,6 +38,7 @@ async function main() {
         .setTraceEndpoint(new URL(`http://${HOST}:${PORT1}/v1/traces`))
         .setMetricsEndpoint(new URL(`http://${HOST}:${PORT1}/v1/metrics`))
         .setLoggingEndpoint(new URL(`http://${HOST}:${PORT1}/v1/logs`))
+        .setDebugState(true)
     const res = new ResourceAttributes("test_aotel", "1.2.3")
         .setAttributes({foo: "test", userId: "exampleUser"})
     var signals: Signal[] = []

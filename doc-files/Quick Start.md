@@ -379,3 +379,6 @@ const res = new ResourceAttributes("test_aotel", "1.0.0").setAttributes({foo: "t
 
 - If you set keys for any of the class parameters the most recent set operation will overwrite the pre-existing value
 - Setting parameters directly is not allowed, it is modified by adding keys/values pairs with setAttributes.
+
+# Package Limitations
+This package does __NOT__ support HTTP(S) Proxies. This is a _major_ difference compared to the Python package. The underlying Open Telemetry Typescript package is lacking any actual support for HTTP(S) Proxies in the HTTP exporters. Any proxying __MUST__ be done at the host OS level.
