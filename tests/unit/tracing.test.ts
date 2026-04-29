@@ -13,7 +13,6 @@ import type { Resource as _Resource } from '@opentelemetry/resources';
 type Resource = _Resource;
 
 jest.mock('@opentelemetry/sdk-metrics')
-jest.mock('@opentelemetry/exporter-trace-otlp-grpc')
 jest.mock('@opentelemetry/exporter-trace-otlp-http')
 jest.mock('@opentelemetry/api')
 
@@ -101,11 +100,11 @@ test("verify non-console implementation for setup and variations", () => {
     var counter = 0
     for (let authToken of [undefined, "auth_token"]) {
         for (let cert of [undefined, certFile]) {
-            const ports: Record<string,number> = { "http": 80, "https": 443, "grpc": 4317, "grpcs": 4318, "devnull": 0, "unknown": 0 }
+            const ports: Record<string,number> = { "http": 80, "https": 443, "devnull": 0, "unknown": 0 }
             for (let schema of Object.keys(ports)) {
                 counter += 1
                 const port = ports[schema]
-                const path = schema.startsWith("grpc") ? "/" : "/v1/metrics"
+                const path = "/v1/traces"
                 const str = (schema === "devnull" || schema === "unknown") ? `${schema}:` : `${schema}://localhost:${port}${path}`
                 const url = new URL(str)
                 const config = new Configuration();
@@ -117,22 +116,6 @@ test("verify non-console implementation for setup and variations", () => {
     }
 })
 
-test("verify readCredentials", () => {
-    const config = new Configuration().setDebugState(true);
-    const attributes = new ResourceAttributes("test_service", "0.0.1")
-    var trace = new AnacondaTrace(config, attributes)
-    for (let file of [undefined, certFile]) {
-        for (let scheme of ["https:", "grpcs:"]) {
-            const result = trace.readCredentials(scheme, file)
-            if (file && scheme === "grpcs:") {
-                expect(result).toBeDefined()
-            } else {
-                expect(result).toBeUndefined()
-            }
-        }
-    }
-    expect(trace.readCredentials("grpcs:", "/tmp/doesnt_exist")).toBeUndefined()
-})
 
 test("test NoOp exporter", () => {
     const tracer = new NoopSpanExporter()

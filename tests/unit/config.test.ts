@@ -75,20 +75,20 @@ test("Verify Initial State with env ATEL_USE_CONSOLE set to true", () => {
 })
 
 test("Verify use of environment default endpoints", () => {
-    process.env.ATEL_DEFAULT_ENDPOINT = "grpc://mydomain.com:1234"
+    process.env.ATEL_DEFAULT_ENDPOINT = "http://mydomain.com:1234/v1/metrics"
     process.env.ATEL_DEFAULT_AUTH_TOKEN = "My_Hash_Token_String"
     process.env.ATEL_DEFAULT_TLS_PRIVATE_CA_CERT_FILE = "/tmp/mycert.pem"
 
     var config = new Configuration()
     var impl = toImpl(config)
     expect(impl).toBeDefined()
-    expect(impl.defaultEndpoint[0].toString()).toBe("grpc://mydomain.com:1234")
+    expect(impl.defaultEndpoint[0].toString()).toBe("http://mydomain.com:1234/v1/metrics")
     expect(impl.defaultEndpoint[1]).toBe("My_Hash_Token_String")
     expect(impl.defaultEndpoint[2]).toBe("/tmp/mycert.pem")
 })
 
 test("Verify use of invalid environment default endpoint", () => {
-    process.env.ATEL_DEFAULT_ENDPOINT = "grpc//nocolon.com:1234"
+    process.env.ATEL_DEFAULT_ENDPOINT = "http//nocolon.com:1234"
 
     expect(() => {
         var config = new Configuration()
@@ -96,10 +96,10 @@ test("Verify use of invalid environment default endpoint", () => {
 })
 
 test("Verify constructor arguments",() => {
-    var config = new Configuration(new URL("grpc://mydomain.com:1234"), "My_Hash_Token_String", "/tmp/mycert.pem")
+    var config = new Configuration(new URL("http://mydomain.com:1234/v1/metrics"), "My_Hash_Token_String", "/tmp/mycert.pem")
     var impl = toImpl(config)
     expect(impl).toBeDefined()
-    expect(impl.defaultEndpoint[0].toString()).toBe("grpc://mydomain.com:1234")
+    expect(impl.defaultEndpoint[0].toString()).toBe("http://mydomain.com:1234/v1/metrics")
     expect(impl.defaultEndpoint[1]).toBe("My_Hash_Token_String")
     expect(impl.defaultEndpoint[2]).toBe("/tmp/mycert.pem")
 })

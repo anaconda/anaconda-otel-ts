@@ -15,13 +15,6 @@ import { logs, SeverityNumber, type Logger } from '@opentelemetry/api-logs';
 import * as httpNS from '@opentelemetry/exporter-logs-otlp-http';
 const { OTLPLogExporter: OTLPLogExporterHTTP } = httpNS;
 
-import * as grpcExporterNS from '@opentelemetry/exporter-logs-otlp-grpc';
-const { OTLPLogExporter: OTLPLogExporterGRPC } = grpcExporterNS;
-
-import grpc from '@grpc/grpc-js';
-const { ChannelCredentials } = grpc;
-
-import type { ChannelCredentials as _ChannelCredentials } from '@grpc/grpc-js';
 
 import {
     LoggerProvider,
@@ -33,7 +26,6 @@ import {
 import { type ExportResult, ExportResultCode } from '@opentelemetry/core';
 
 // ----- local type aliases that REUSE the value names -----
-type ChannelCredentials = _ChannelCredentials;
 
 /**
  * Arguments for calls to any log methods. See documentation for ATelLogger.
@@ -174,9 +166,8 @@ export class AnacondaLogging extends AnacondaCommon implements ATelLogger {
             this.attributes.userId = id
         }
         var [scheme, ep] = this.transformURL(this.config.loggingEndpoint![0])
-        var creds: ChannelCredentials | undefined = this.readCredentials(scheme, this.config.loggingEndpoint![2])
         var headers = this.makeHeaders(scheme, authToken)
-        var exporter = this.makeExporter(scheme, ep, headers, creds)
+        var exporter = this.makeExporter(scheme, ep, headers)
         if (exporter === undefined) {
             return false
         }
@@ -214,11 +205,8 @@ export class AnacondaLogging extends AnacondaCommon implements ATelLogger {
         const scheme = endpoint.protocol
         const ep = new URL(endpoint.href)
         this._debug(`Connecting to logging endpoint '${ep.href}'.`)
-        ep.protocol = ep.protocol.replace("grpcs:", "https:")
-        ep.protocol = ep.protocol.replace("grpc:", "http:")
-        var creds: ChannelCredentials | undefined = this.readCredentials(scheme, certFile)
         const headers: Record<string,string> = authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
-        const processor: BatchLogRecordProcessor | undefined = this.makeBatchProcessor(scheme, ep, headers, creds)
+        const processor: BatchLogRecordProcessor | undefined = this.makeBatchProcessor(scheme, ep, headers)
         if (processor) {
             this.processor = processor
             this.provider = new LoggerProvider({
@@ -236,22 +224,10 @@ export class AnacondaLogging extends AnacondaCommon implements ATelLogger {
         }
     }
 
-    /* private */ readCredentials(scheme: string, certFile?: string): ChannelCredentials | undefined {
-        var creds: ChannelCredentials | undefined = undefined
-        if (certFile !== undefined && scheme === ("grpcs:")) {
-            const certContent = this.readCertFile(certFile)
-            if (certContent) {
-                creds = ChannelCredentials.createSsl(Buffer.from(certContent))
-            } else {
-                this._warn(`Failed to read certificate file: ${certFile}`)
-            }
-        }
-        return creds
-    }
 
     makeBatchProcessor(scheme: string, url: URL, httpHeaders: Record<string,string>,
-                       creds?: ChannelCredentials): BatchLogRecordProcessor | undefined {
-        var exporter = this.makeExporter(scheme, url, httpHeaders, creds)
+): BatchLogRecordProcessor | undefined {
+        var exporter = this.makeExporter(scheme, url, httpHeaders)
         if (exporter === undefined) {
             return undefined
         }
@@ -261,18 +237,13 @@ export class AnacondaLogging extends AnacondaCommon implements ATelLogger {
         })
     }
 
-    private makeExporter(scheme: string, url: URL, httpHeaders: Record<string,string>,
-                         creds?: ChannelCredentials): LogRecordExporter | undefined {
+    private makeExporter(scheme: string, url: URL, httpHeaders: Record<string,string>): LogRecordExporter | undefined {
         var exporter: LogRecordExporter | undefined = undefined
         var urlStr = url.href
         this._debug(`Creating log exporter at endpoint ${urlStr}`)
         if (scheme === 'grpc:' || scheme === 'grpcs:') {
-            urlStr = `${url.hostname}:${url.port}`
-            exporter = new OTLPLogExporterGRPC({
-                url: urlStr,
-                headers: httpHeaders,
-                credentials: creds
-            });
+            this._warn(`GRPC endpoints are no longer supported. Please use HTTP/HTTPS endpoints instead: ${urlStr}`)
+            return undefined
         } else if (scheme === 'http:' || scheme === 'https:') {
             exporter = new OTLPLogExporterHTTP({
                 url: urlStr,

@@ -11,7 +11,6 @@ import { ResourceAttributes, InternalResourceAttributes } from '../../src/attrib
 import { AnacondaMetrics, CounterArgs, HistogramArgs, NoopMetricExporter } from '../../src/metrics'
 
 jest.mock('@opentelemetry/sdk-metrics')
-jest.mock('@opentelemetry/exporter-metrics-otlp-grpc')
 jest.mock('@opentelemetry/exporter-metrics-otlp-http')
 jest.mock('@opentelemetry/api')
 
@@ -129,16 +128,16 @@ test("verify non-console implementation for setup and variations", () => {
     var counter = 0
     for (let authToken of [undefined, "auth_token"]) {
         for (let cert of [undefined, certFile]) {
-            const ports: Record<string,number> = { "http": 80, "https": 443, "grpc": 4317, "grpcs": 4318, "devnull": 0, "unknown": 0 }
+            const ports: Record<string,number> = { "http": 80, "https": 443, "devnull": 0, "unknown": 0 }
             for (let schema of Object.keys(ports)) {
                 counter += 1
-                if (counter === 19) { // Last time through nested loops ((2 * 2 * 5) - 1).
+                if (counter === 11) { // Last time through nested loops ((2 * 2 * 3) - 1).
                     fs.unlinkSync(certFile)
                     // mockedMetrics.setGlobalMeterProvider.mockReturnValue(false)
                     process.env.OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE = "DELTA"
                 }
                 const port = ports[schema]
-                const path = schema.startsWith("grpc") ? "/" : "/v1/metrics"
+                const path = "/v1/metrics"
                 const str = (schema === "devnull" || schema === "unknown") ? `${schema}:` : `${schema}://localhost:${port}${path}`
                 const url = new URL(str)
                 const config = new Configuration();

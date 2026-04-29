@@ -8,7 +8,7 @@ Baggage consists of key-value pairs that are automatically propagated through yo
 
 **Key characteristics:**
 - **String-only data**: Both keys and values must be ASCII strings (following W3C Baggage specification)
-- **Automatic propagation**: Travels with requests across HTTP, gRPC, message queues, and other protocols
+- **Automatic propagation**: Travels with requests across HTTP, message queues, and other protocols
 - **Cross-service accessibility**: Any service in the request chain can read, add, or modify baggage
 - **Language agnostic**: Works consistently across different programming languages and frameworks
 - **Lightweight**: Designed for small amounts of contextual data

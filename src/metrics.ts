@@ -19,11 +19,6 @@ const {
 import * as httpNS from '@opentelemetry/exporter-metrics-otlp-http';
 const { OTLPMetricExporter: OTLPMetricExporterHTTP } = httpNS;
 
-import * as grpcExporterNS from '@opentelemetry/exporter-metrics-otlp-grpc';
-const { OTLPMetricExporter: OTLPMetricExporterGRPC } = grpcExporterNS;
-
-import grpc from '@grpc/grpc-js';
-const { ChannelCredentials } = grpc;
 
 // ----- type-only imports -----
 import type {
@@ -41,12 +36,9 @@ import type {
   PeriodicExportingMetricReaderOptions as _PeriodicExportingMetricReaderOptions,
 } from '@opentelemetry/sdk-metrics';
 
-import type { ChannelCredentials as _ChannelCredentials } from '@grpc/grpc-js';
-
 // ----- local type aliases that REUSE the value names -----
 type MeterProvider = _MeterProvider;
 type PeriodicExportingMetricReader = _PeriodicExportingMetricReader;
-type ChannelCredentials = _ChannelCredentials;
 type PeriodicExportingMetricReaderOptions = _PeriodicExportingMetricReaderOptions;
 
 export class CounterArgs {
@@ -101,9 +93,8 @@ export class AnacondaMetrics extends AnacondaCommon {
             this.attributes.userId = id
         }
         var [scheme, ep] = this.transformURL(this.config.metricsEndpoint![0])
-        var creds: ChannelCredentials | undefined = this.readCredentials(scheme, this.config.metricsEndpoint![2])
         var headers = this.makeHeaders(scheme, authToken)
-        var exporter = this.makeExporter(scheme, ep, headers, creds)
+        var exporter = this.makeExporter(scheme, ep, headers)
         if (exporter === undefined) {
             return false
         }
@@ -172,20 +163,13 @@ export class AnacondaMetrics extends AnacondaCommon {
         }
     }
 
-    private makeExporter(scheme: string, url: URL, httpHeaders: Record<string,string>,
-                         creds?: ChannelCredentials): PushMetricExporter | undefined {
+    private makeExporter(scheme: string, url: URL, httpHeaders: Record<string,string>): PushMetricExporter | undefined {
         var urlStr = url.href
         var exporter: PushMetricExporter | undefined = undefined
         this._debug(`Creating metrics exporter at endpoint ${urlStr}`)
         if (scheme === 'grpc:' || scheme === 'grpcs:') {
-            urlStr = `${url.hostname}:${url.port}`
-            exporter = new OTLPMetricExporterGRPC({
-                url: urlStr,
-                credentials: creds,
-                temporalityPreference: this.config.getUseCumulativeMetrics() ?
-                    httpNS.AggregationTemporalityPreference.CUMULATIVE :
-                    httpNS.AggregationTemporalityPreference.DELTA
-            });
+            this._warn(`GRPC endpoints are no longer supported. Please use HTTP/HTTPS endpoints instead: ${urlStr}`)
+            return undefined
         } else if (scheme === 'http:' || scheme === 'https:') {
             exporter = new OTLPMetricExporterHTTP({
                 url: urlStr,
@@ -204,9 +188,9 @@ export class AnacondaMetrics extends AnacondaCommon {
         return exporter
     }
 
-    private makeReader(scheme: string, url: URL, httpHeaders: Record<string,string>, creds?: ChannelCredentials): PeriodicExportingMetricReader | undefined {
+    private makeReader(scheme: string, url: URL, httpHeaders: Record<string,string>): PeriodicExportingMetricReader | undefined {
         this._debug(`Creating Reader for endpoint type '${scheme}'.`)
-        var exporter = this.makeExporter(scheme, url, httpHeaders, creds)
+        var exporter = this.makeExporter(scheme, url, httpHeaders)
         if (exporter === undefined) {
             return undefined
         }
@@ -218,18 +202,6 @@ export class AnacondaMetrics extends AnacondaCommon {
         return reader
     }
 
-    private readCredentials(scheme: string, certFile?: string): ChannelCredentials | undefined {
-        var creds: ChannelCredentials | undefined = undefined
-        if (certFile && scheme === ("grpcs:")) {
-            const certContent = this.readCertFile(certFile)
-            if (certContent) {
-                creds = ChannelCredentials.createSsl(Buffer.from(certContent))
-            } else {
-                this._warn(`Failed to read certificate file: ${certFile}`)
-            }
-        }
-        return creds
-    }
 
     private setup(): void {
         if (this.config.useDebug) {
@@ -241,9 +213,8 @@ export class AnacondaMetrics extends AnacondaCommon {
             return
         }
         var [scheme, ep] = this.transformURL(endpoint)
-        var creds: ChannelCredentials | undefined = this.readCredentials(scheme, certFile)
         var headers = this.makeHeaders(scheme, authToken)
-        const reader: PeriodicExportingMetricReader | undefined = this.makeReader(scheme, ep, headers, creds)
+        const reader: PeriodicExportingMetricReader | undefined = this.makeReader(scheme, ep, headers)
         if (reader != undefined) {
             this.reader = reader
             this.meterProvider = new MeterProvider({ readers: [this.reader!], resource: this.resources })

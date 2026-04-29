@@ -50,10 +50,10 @@ export type EndpointTuple = [URL, string | undefined, string | undefined]
  * warning and not function as expected:
  *   - **http:** - Regular uncompressed HTTP JSON payloads unencrypted connection.
  *   - **https:** - Regular uncompressed HTTP JSON payloads over a TLS encrypted connection.
- *   - **grpc:** - GRPC compressed payloads over HTTP unencrypted connection.
- *   - **grrpcs:** - GRPC compressed payloads over HTTP TLS encrypted connection.
  *   - **console:** - JSON payload written to the stdout console.
  *   - **devnull:** - Suppresses all output for the specified signal type.
+ *
+ * **Note:** GRPC endpoints (grpc: and grpcs:) are no longer supported.
  *
  * All endpoints beginning with `http:` or `https:` must use the url path "/v1/`signal_type`"" where
  * `signal_types` is one of `metrics` or `traces` for metrics and tracing signals respectively.
@@ -71,7 +71,7 @@ export class Configuration {
      * 2. Explicitly provided arguments to this constructor.
      * 3. Internal default values if both of the first 2 are missing.
      *
-     * @param defaultEndpoint - The default endpoint URL to use. If not provided, falls back to environment variable or internal default (grpc://localhost:4317).
+     * @param defaultEndpoint - **DEPRECATED**: The default endpoint URL to use. Default endpoints are no longer supported. Use signal-specific endpoint methods instead. Falls back to environment variable or internal default (http://localhost:4318).
      * @param defaultAuthToken - The default authentication token. If not provided, falls back to environment variable or internal default (undefined).
      * @param defaultCertFile - The default certificate file path. If not provided, falls back to environment variable or internal default (undefined).
      */
@@ -79,6 +79,9 @@ export class Configuration {
         this._impl = new InternalConfiguration()
         this._id = String(InternalConfiguration.__nextId++)
         InternalConfiguration.__lookupImpl[this._id] = this._impl
+        if (defaultEndpoint !== undefined) {
+            console.warn("*** WARNING: Default endpoints are deprecated and will be ignored. Use setMetricsEndpoint(), setTraceEndpoint(), or setLoggingEndpoint() instead.")
+        }
         if (defaultEndpoint === undefined) {
             defaultEndpoint = InternalConfiguration.defaultUrl
         }
@@ -280,7 +283,7 @@ export class InternalConfiguration {
 
     public static readonly devnullUrl: URL = new URL("devnull:")
     public static readonly consoleUrl: URL = new URL("console:")
-    public static readonly defaultUrl: URL = new URL("grpc://localhost:4317/")
+    public static readonly defaultUrl: URL = new URL("http://localhost:4318/")
     public static readonly nullEndpoint: EndpointTuple = [this.devnullUrl, undefined, undefined]
 
     public defaultEndpoint: EndpointTuple = [InternalConfiguration.defaultUrl, undefined, undefined]
@@ -331,6 +334,7 @@ export class InternalConfiguration {
             }
             return endpoint
         } else if (this.metricsEndpoint === InternalConfiguration.nullEndpoint) {
+            console.warn("*** WARNING: Using deprecated default endpoint for metrics. Use setMetricsEndpoint() to set a specific endpoint.")
             return this.getDefaultEndpointTuple()
         } else {
             return this.metricsEndpoint!
@@ -352,6 +356,7 @@ export class InternalConfiguration {
             }
             return endpoint
         } else if (this.traceEndpoint === InternalConfiguration.nullEndpoint) {
+            console.warn("*** WARNING: Using deprecated default endpoint for traces. Use setTraceEndpoint() to set a specific endpoint.")
             return this.getDefaultEndpointTuple()
         } else {
             return this.traceEndpoint
@@ -373,6 +378,7 @@ export class InternalConfiguration {
             }
             return endpoint
         } else if (this.loggingEndpoint === InternalConfiguration.nullEndpoint) {
+            console.warn("*** WARNING: Using deprecated default endpoint for logging. Use setLoggingEndpoint() to set a specific endpoint.")
             return this.getDefaultEndpointTuple()
         } else {
             return this.loggingEndpoint
