@@ -50,11 +50,7 @@ const config = new Configuration(new URL("http://localhost:4318/v1/metrics"))
 This class has a number of setter methods for setting various configuration options. See documentation below for details. For each configuration there is a corresponding environment variable. The environment variable names are listed in the `Configuration` class remarks.
 
 ### Configuration Default Endpoint
-A default endpoint must be passed either to the constructor. It is the only value in the configuration that must be specified. The usage of TLS is derived from the scheme specified in the endpoint, as well as the OpenTelemetry export protocol (HTTP only). Using an unallowed scheme will raise an error. The allowed schemes are:
-- https (HTTP protocol, TLS enabled)
-- http (HTTP protocol, TLS disabled)
-
-For debugging purposes the enpoint(s) may be set to "console:" in configuration, or use the ATEL_USE_CONSOLE=1 environment variable to bypass sending to a collector and instead dumping to the console. This flag is also exposed in the `Configuration` class via the `setUseConsoleOutput` method.
+___The default endpoint has been deprecated:___ Instead set the signal endpoints explicitly for each used signal type instead.
 
 ### Metric, Tracing and Logging Configuration
 If your use case requires different schemes/TLS settings, auth tokens, or CA certs for different signal types: you can pass varying auth token and cert file parameters to the endpoint setter. The function signature is:
