@@ -16,9 +16,9 @@ export type EndpointTuple = [URL, string | undefined, string | undefined]
  *
  * @remarks
  * Environment variables can override default endpoint, authentication token, and certificate file:
- * - `ATEL_DEFAULT_ENDPOINT`
+ * - `ATEL_DEFAULT_ENDPOINT` (*** DEPRECATED: Default endpoints are no longer supported. Use signal-specific endpoint environment variables or methods instead. ***)
  * - `ATEL_DEFAULT_AUTH_TOKEN`
- * - `ATEL_DEFAULT_TLS_PRIVATE_CA_CERT_FILE`
+ * - `ATEL_DEFAULT_TLS_PRIVATE_CA_CERT_FILE` (*** DEPRECATED: Default certificate file is no longer supported. Use signal-specific certificate file environment variables or methods instead. ***)
  *
  * * Additionally, the following environment variables can be used to configure metrics and trace endpoints:
  * - `ATEL_METRICS_ENDPOINT`
@@ -67,7 +67,7 @@ export class Configuration {
      * setting default values for endpoint, authentication token, and certificate file.
      *
      * The class prioritizes values in the following order:
-     * 1. Environment variables (`ATEL_DEFAULT_ENDPOINT`, `ATEL_DEFAULT_AUTH_TOKEN`, `ATEL_DEFAULT_TLS_PRIVATE_CA_CERT_FILE`). This allows quick changes in behaviors without changing code of application configuration.
+     * 1. Environment variable (`ATEL_DEFAULT_AUTH_TOKEN`). This allows quick changes in behaviors without changing code of application configuration.
      * 2. Explicitly provided arguments to this constructor.
      * 3. Internal default values if both of the first 2 are missing.
      *
@@ -81,20 +81,17 @@ export class Configuration {
         InternalConfiguration.__lookupImpl[this._id] = this._impl
         if (defaultEndpoint !== undefined) {
             console.warn("*** WARNING: Default endpoints are deprecated and will be ignored. Use setMetricsEndpoint(), setTraceEndpoint(), or setLoggingEndpoint() instead.")
+            defaultEndpoint = undefined
         }
-        if (defaultEndpoint === undefined) {
-            defaultEndpoint = InternalConfiguration.defaultUrl
-        }
-        if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_DEFAULT_ENDPOINT)) {
-            defaultEndpoint = new URL(process.env.ATEL_DEFAULT_ENDPOINT as string)
-        }
+        defaultEndpoint = InternalConfiguration.defaultUrl
         if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_DEFAULT_AUTH_TOKEN)) {
             defaultAuthToken = process.env.ATEL_DEFAULT_AUTH_TOKEN
         }
         if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_DEFAULT_TLS_PRIVATE_CA_CERT_FILE)) {
-            defaultCertFile = process.env.ATEL_DEFAULT_TLS_PRIVATE_CA_CERT_FILE
+            console.warn("*** WARNING: Default cert files are deprecated and will be ignored.")
+            defaultCertFile = undefined
         }
-        this._impl.defaultEndpoint = [defaultEndpoint, defaultAuthToken, defaultCertFile]
+        this._impl.defaultEndpoint = [defaultEndpoint, defaultAuthToken, undefined]
     }
 
     /**
@@ -102,11 +99,14 @@ export class Configuration {
      *
      * @param endpoint - The URL of the metrics endpoint.
      * @param authToken - Optional authentication token for the endpoint.
-     * @param certFile - Optional path to a certificate file for secure connections.
+     * @param certFile - DEPRECATED: Optional path to a certificate file for secure connections.
      * @returns The current instance for method chaining.
      */
     public setMetricsEndpoint(endpoint: URL, authToken?: string, certFile?: string): this {
-        this._impl.metricsEndpoint = [endpoint, authToken, certFile]
+        if (certFile !== undefined) {
+            console.warn("*** WARNING: cert files are currently deprecated and will not be used for secure connections.")
+        }
+        this._impl.metricsEndpoint = [endpoint, authToken, undefined]
         return this
     }
 
@@ -115,11 +115,14 @@ export class Configuration {
      *
      * @param endpoint - The URL of the traceing endpoint.
      * @param authToken - Optional authentication token for the endpoint.
-     * @param certFile - Optional path to a certificate file for secure connections.
+     * @param certFile - DEPRECATED: Optional path to a certificate file for secure connections.
      * @returns The current instance for method chaining.
      */
     public setTraceEndpoint(endpoint: URL, authToken?: string, certFile?: string): this {
-        this._impl.traceEndpoint = [endpoint, authToken, certFile]
+        if (certFile !== undefined) {
+            console.warn("*** WARNING: cert files are currently deprecated and will not be used for secure connections.")
+        }
+        this._impl.traceEndpoint = [endpoint, authToken, undefined]
         return this
     }
 
@@ -128,11 +131,14 @@ export class Configuration {
      *
      * @param endpoint - The URL of the logging endpoint.
      * @param authToken - Optional authentication token for the endpoint.
-     * @param certFile - Optional path to a certificate file for secure connections.
+     * @param certFile - DEPRECATED: Optional path to a certificate file for secure connections.
      * @returns The current instance for method chaining.
      */
     public setLoggingEndpoint(endpoint: URL, authToken?: string, certFile?: string): this {
-        this._impl.loggingEndpoint = [endpoint, authToken, certFile]
+        if (certFile !== undefined) {
+            console.warn("*** WARNING: cert files are currently deprecated and will not be used for secure connections.")
+        }
+        this._impl.loggingEndpoint = [endpoint, authToken, undefined]
         return this
     }
 
