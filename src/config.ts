@@ -81,13 +81,12 @@ export class Configuration {
         InternalConfiguration.__lookupImpl[this._id] = this._impl
         if (defaultEndpoint !== undefined) {
             console.warn("*** WARNING: Default endpoints are deprecated and will be ignored. Use setMetricsEndpoint(), setTraceEndpoint(), or setLoggingEndpoint() instead.")
-            defaultEndpoint = undefined
         }
         defaultEndpoint = InternalConfiguration.defaultUrl
         if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_DEFAULT_AUTH_TOKEN)) {
             defaultAuthToken = process.env.ATEL_DEFAULT_AUTH_TOKEN
         }
-        if (!InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_DEFAULT_TLS_PRIVATE_CA_CERT_FILE)) {
+        if (defaultCertFile !== undefined || !InternalConfiguration.checkIfEnvUndefined(process.env.ATEL_DEFAULT_TLS_PRIVATE_CA_CERT_FILE)) {
             console.warn("*** WARNING: Default cert files are deprecated and will be ignored.")
             defaultCertFile = undefined
         }
