@@ -14,9 +14,7 @@ beforeEach(() => {
 
     // Clear environment variables...
     delete process.env.ATEL_USE_CONSOLE
-    delete process.env.ATEL_DEFAULT_ENDPOINT
     delete process.env.ATEL_DEFAULT_AUTH_TOKEN
-    delete process.env.ATEL_DEFAULT_TLS_PRIVATE_CA_CERT_FILE
     delete process.env.ATEL_METRICS_ENDPOINT
     delete process.env.ATEL_METRICS_AUTH_TOKEN
     delete process.env.ATEL_METRICS_TLS_PRIVATE_CA_CERT_FILE
@@ -75,33 +73,20 @@ test("Verify Initial State with env ATEL_USE_CONSOLE set to true", () => {
 })
 
 test("Verify use of environment default endpoints", () => {
-    process.env.ATEL_DEFAULT_ENDPOINT = "grpc://mydomain.com:1234"
     process.env.ATEL_DEFAULT_AUTH_TOKEN = "My_Hash_Token_String"
-    process.env.ATEL_DEFAULT_TLS_PRIVATE_CA_CERT_FILE = "/tmp/mycert.pem"
 
     var config = new Configuration()
     var impl = toImpl(config)
     expect(impl).toBeDefined()
-    expect(impl.defaultEndpoint[0].toString()).toBe("grpc://mydomain.com:1234")
     expect(impl.defaultEndpoint[1]).toBe("My_Hash_Token_String")
-    expect(impl.defaultEndpoint[2]).toBe("/tmp/mycert.pem")
-})
-
-test("Verify use of invalid environment default endpoint", () => {
-    process.env.ATEL_DEFAULT_ENDPOINT = "grpc//nocolon.com:1234"
-
-    expect(() => {
-        var config = new Configuration()
-    }).toThrow("Invalid URL")
 })
 
 test("Verify constructor arguments",() => {
-    var config = new Configuration(new URL("grpc://mydomain.com:1234"), "My_Hash_Token_String", "/tmp/mycert.pem")
+    var config = new Configuration(new URL("http://mydomain.com:1234/v1/metrics"), "My_Hash_Token_String", "/tmp/mycert.pem")
     var impl = toImpl(config)
     expect(impl).toBeDefined()
-    expect(impl.defaultEndpoint[0].toString()).toBe("grpc://mydomain.com:1234")
+    expect(impl.defaultEndpoint[0].toString()).toBe("http://localhost:4318/")
     expect(impl.defaultEndpoint[1]).toBe("My_Hash_Token_String")
-    expect(impl.defaultEndpoint[2]).toBe("/tmp/mycert.pem")
 })
 
 test("Verify setUseConsoleOutput value", () => {
@@ -159,7 +144,7 @@ test("Verify setting and looping through metrics endpoints", () => {
     tuple = impl.getMetricsEndpointTuple()
     expect(tuple[0].toString()).toBe("https://metrics3.mydomain.com:4567/")
     expect(tuple[1]).toBe("Metrics_Token")
-    expect(tuple[2]).toBe("/tmp/metrics.pem")
+    expect(tuple[2]).toBeUndefined()
 })
 
 test("Verify setting and looping through trace endpoints", () => {
@@ -199,7 +184,7 @@ test("Verify setting and looping through trace endpoints", () => {
     tuple = impl.getTraceEndpointTuple()
     expect(tuple[0].toString()).toBe("https://trace3.mydomain.com:4567/")
     expect(tuple[1]).toBe("Trace_Token")
-    expect(tuple[2]).toBe("/tmp/trace.pem")
+    expect(tuple[2]).toBeUndefined()
 })
 
 test("Verify setting and looping through logging endpoints", () => {
@@ -239,7 +224,7 @@ test("Verify setting and looping through logging endpoints", () => {
     tuple = impl.getLoggingEndpointTuple()
     expect(tuple[0].toString()).toBe("https://logging3.mydomain.com:4567/")
     expect(tuple[1]).toBe("Logging_Token")
-    expect(tuple[2]).toBe("/tmp/logging.pem")
+    expect(tuple[2]).toBeUndefined()
 })
 
 test("Verify the export interval value", () => {
@@ -337,13 +322,13 @@ test("Verify negative envonment variable for use console output", () => {
     expect(impl).toBeDefined()
     expect(impl.useConsole).toBe(false)
     var endpoint = impl.getDefaultEndpointTuple()
-    expect(endpoint[0].toString()).toBe("https://mydomain.com:9876/")
+    expect(endpoint[0].toString()).toBe("http://localhost:4318/")
     expect(endpoint[1]).toBeUndefined()
     expect(endpoint[2]).toBeUndefined()
     delete process.env.ATEL_USE_CONSOLE
     config.setUseConsoleOutput(false)
     expect(impl.useConsole).toBe(false)
-    expect(impl.getDefaultEndpoint().toString()).toBe("https://mydomain.com:9876/")
+    expect(impl.getDefaultEndpoint().toString()).toBe("http://localhost:4318/")
 })
 
 test("Verify entropy value", () => {
@@ -369,7 +354,7 @@ test("Verify set*Endpoint methods", () => {
     var tuple = impl.getMetricsEndpointTuple()
     expect(tuple[0].toString()).toBe("https://metrics.mydomain.com:1234/")
     expect(tuple[1]).toBe("Metrics_Token")
-    expect(tuple[2]).toBe("/tmp/metrics.pem")
+    expect(tuple[2]).toBeUndefined()
 
     config.setMetricsEndpoint(new URL("https://metrics.mydomain.com:1234"), "Metrics_Token")
     tuple = impl.getMetricsEndpointTuple()
@@ -388,7 +373,7 @@ test("Verify set*Endpoint methods", () => {
     tuple = impl.getTraceEndpointTuple()
     expect(tuple[0].toString()).toBe("https://trace.mydomain.com:1234/")
     expect(tuple[1]).toBe("Trace_Token")
-    expect(tuple[2]).toBe("/tmp/trace.pem")
+    expect(tuple[2]).toBeUndefined()
 
     config.setTraceEndpoint(new URL("https://trace.mydomain.com:1234"), "Trace_Token")
     tuple = impl.getTraceEndpointTuple()
@@ -407,7 +392,7 @@ test("Verify set*Endpoint methods", () => {
     tuple = impl.getLoggingEndpointTuple()
     expect(tuple[0].toString()).toBe("https://logging.mydomain.com:1234/")
     expect(tuple[1]).toBe("Logging_Token")
-    expect(tuple[2]).toBe("/tmp/logging.pem")
+    expect(tuple[2]).toBeUndefined()
 
     config.setLoggingEndpoint(new URL("https://logging.mydomain.com:1234"), "Logging_Token")
     tuple = impl.getLoggingEndpointTuple()

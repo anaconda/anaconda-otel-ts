@@ -135,8 +135,6 @@ export class AnacondaCommon {
     protected transformURL(url: URL): [string, URL] {
         const scheme = url.protocol
         const ep = new URL(url.href)
-        ep.protocol = ep.protocol.replace("grpcs:", "https:")
-        ep.protocol = ep.protocol.replace("grpc:", "http:")
         return [scheme, ep]
     }
 
@@ -173,7 +171,7 @@ export class AnacondaCommon {
 
     protected isValidOtelUrl(urlStr: string): boolean {
         return urlStr === "console:" || urlStr === "devnull:" ||
-               this.isValidOtelHttpUrl(urlStr) || this.isValidOtelGrpcUrl(urlStr)
+               this.isValidOtelHttpUrl(urlStr)
     }
 
     private isValidOtelHttpUrl(urlStr: string): boolean {
@@ -198,33 +196,6 @@ export class AnacondaCommon {
         return true;
     }
 
-    /**
-     * 2) Validate an OTLP/gRPC URL:
-     * - scheme: grpc | grpcs
-     * - host: ipv4 | domain | localhost
-     * - optional port
-     * - MUST NOT have a path (i.e. "/" only), NO query/fragment
-     */
-    private isValidOtelGrpcUrl(urlStr: string): boolean {
-        let u: URL;
-        try {
-            u = new URL(urlStr);
-        } catch {
-            return false;
-        }
-
-        if (u.protocol !== "grpc:" && u.protocol !== "grpcs:") return false;
-        if (!this.isValidHost(u.hostname)) return false;
-        if (u.port && !this.isValidPort(u.port)) return false;
-
-        // No path (URL parser represents "no path" as "/")
-        if (u.pathname !== "/") return false;
-
-        // No query/fragment
-        if (u.search !== "" || u.hash !== "") return false;
-
-        return true;
-    }
 
     /** Host can be "localhost", a valid IPv4, or a valid domain name. */
     private isValidHost(hostname: string): boolean {

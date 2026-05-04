@@ -15,8 +15,6 @@ import { diag, DiagConsoleLogger, DiagLogLevel } from '@opentelemetry/api';
 import * as otlpTraceHttpNS from '@opentelemetry/exporter-trace-otlp-http';
 const { OTLPTraceExporter: OTLPTraceExporterHTTP } = otlpTraceHttpNS;
 
-import * as otlpTraceGrpcNS from '@opentelemetry/exporter-trace-otlp-grpc';
-const { OTLPTraceExporter: OTLPTraceExporterGRPC } = otlpTraceGrpcNS;
 
 import * as sdkTraceBaseNS from '@opentelemetry/sdk-trace-base';
 const { ConsoleSpanExporter, BatchSpanProcessor } = sdkTraceBaseNS;
@@ -27,8 +25,6 @@ const { NodeTracerProvider } = sdkTraceNodeNS;
 import * as api from '@opentelemetry/api';
 const { trace, propagation } = api;
 
-import grpc from '@grpc/grpc-js';
-const { ChannelCredentials } = grpc;
 
 // ----- types -----
 import type { Span, Context } from '@opentelemetry/api';
@@ -38,14 +34,11 @@ import type {
   BatchSpanProcessor as _BatchSpanProcessor,
 } from '@opentelemetry/sdk-trace-base';
 import type { NodeTracerProvider as _NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
-import type { ChannelCredentials as _ChannelCredentials } from '@grpc/grpc-js';
-
 // ----- local type aliases (reuse runtime names) -----
 type SpanExporter = _SpanExporter;
 type ReadableSpan = _ReadableSpan;
 type BatchSpanProcessor = _BatchSpanProcessor;
 type NodeTracerProvider = _NodeTracerProvider;
-type ChannelCredentials = _ChannelCredentials;
 
 export class ASpanImpl implements ASpan {
     readonly tracer: AnacondaTrace
@@ -117,9 +110,8 @@ export class AnacondaTrace extends AnacondaCommon {
             this.attributes.userId = id
         }
         var [scheme, ep] = this.transformURL(this.config.traceEndpoint![0])
-        var creds: ChannelCredentials | undefined = this.readCredentials(scheme, this.config.traceEndpoint![2])
         var headers = this.makeHeaders(scheme, authToken)
-        var exporter = this.makeExporter(scheme, ep, headers, creds)
+        var exporter = this.makeExporter(scheme, ep, headers)
         if (exporter === undefined) {
             return false
         }
@@ -174,18 +166,13 @@ export class AnacondaTrace extends AnacondaCommon {
         return propagation.setBaggage(ctx, newBaggage)
     }
 
-    private makeExporter(scheme: string, url: URL, httpHeaders: Record<string,string>,
-                         creds?: ChannelCredentials): SpanExporter | undefined {
+    private makeExporter(scheme: string, url: URL, httpHeaders: Record<string,string>): SpanExporter | undefined {
         var exporter: SpanExporter | undefined = undefined
         var urlStr = url.href
         this._debug(`Creating traces exporter at endpoint ${urlStr}`)
         if (scheme === 'grpc:' || scheme === 'grpcs:') {
-            urlStr = `${url.hostname}:${url.port}`
-            exporter = new OTLPTraceExporterGRPC({
-                url: urlStr,
-                headers: httpHeaders,
-                credentials: creds
-            });
+            this._warn(`GRPC endpoints are no longer supported. Please use HTTP/HTTPS endpoints instead: ${urlStr}`)
+            return undefined
         } else if (scheme === 'http:' || scheme === 'https:') {
             exporter = new OTLPTraceExporterHTTP({
                 url: urlStr,
@@ -202,8 +189,8 @@ export class AnacondaTrace extends AnacondaCommon {
     }
 
     makeBatchProcessor(scheme: string, url: URL, httpHeaders: Record<string,string>,
-                       creds?: ChannelCredentials): BatchSpanProcessor | undefined {
-        var exporter = this.makeExporter(scheme, url, httpHeaders, creds)
+): BatchSpanProcessor | undefined {
+        var exporter = this.makeExporter(scheme, url, httpHeaders)
         if (exporter === undefined) {
             return undefined
         }
@@ -213,18 +200,6 @@ export class AnacondaTrace extends AnacondaCommon {
         })
     }
 
-    readCredentials(scheme: string, certFile?: string): ChannelCredentials | undefined {
-        var creds: ChannelCredentials | undefined = undefined
-        if (certFile !== undefined && scheme === ("grpcs:")) {
-            const certContent = this.readCertFile(certFile)
-            if (certContent) {
-                creds = ChannelCredentials.createSsl(Buffer.from(certContent))
-            } else {
-                this._warn(`Failed to read certificate file: ${certFile}`)
-            }
-        }
-        return creds
-    }
 
     private setup(): void {
         if (this.config.useDebug) {
@@ -238,11 +213,8 @@ export class AnacondaTrace extends AnacondaCommon {
         const scheme = endpoint.protocol
         const ep = new URL(endpoint.href)
         this._debug(`Connecting to traces endpoint '${ep.href}'.`)
-        ep.protocol = ep.protocol.replace("grpcs:", "https:")
-        ep.protocol = ep.protocol.replace("grpc:", "http:")
-        var creds: ChannelCredentials | undefined = this.readCredentials(scheme, certFile)
         const headers: Record<string,string> = authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
-        const processor: BatchSpanProcessor | undefined = this.makeBatchProcessor(scheme, ep, headers, creds)
+        const processor: BatchSpanProcessor | undefined = this.makeBatchProcessor(scheme, ep, headers)
         if (processor) {
             this.processor = processor
             this.provider = new NodeTracerProvider({
