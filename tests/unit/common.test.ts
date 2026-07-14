@@ -16,6 +16,10 @@ class TestImpl extends AnacondaCommon {
         super(config, attributes)
     }
 
+    public exposeIsValidName(name: string): boolean {
+        return this.isValidName(name)
+    }
+
     public getConfig(): InternalConfiguration {
         return this.config
     }
@@ -181,4 +185,24 @@ test("test errorMessage", () => {
 
     expect(ut.errorMessage("exact")).toBe("exact")
     expect(ut.errorMessage(new Error("errMsg"))).toBe("errMsg")
+})
+
+test("test makeEventAttributes", () => {
+    const impl = new TestImpl(new Configuration(), new ResourceAttributes("test_service", "0.0.0"))
+    // Positive
+    expect(impl.exposeIsValidName("valid_name")).toBe(true)
+    expect(impl.exposeIsValidName("1invalid_name")).toBe(true)
+    expect(impl.exposeIsValidName("invalid-name")).toBe(true)
+    expect(impl.exposeIsValidName("valid.name")).toBe(true)
+    expect(impl.exposeIsValidName("valid_name_with_underscores")).toBe(true)
+    expect(impl.exposeIsValidName("valid.name.with.dots")).toBe(true)
+
+    // Negative
+    expect(impl.exposeIsValidName("_invalid_name")).toBe(false)
+    expect(impl.exposeIsValidName("-invalid_name")).toBe(false)
+    expect(impl.exposeIsValidName(".invalid_name")).toBe(false)
+    expect(impl.exposeIsValidName(" \t  \n")).toBe(false)
+    expect(impl.exposeIsValidName("")).toBe(false)
+    expect(impl.exposeIsValidName("invalid name with spaces")).toBe(false)
+    expect(impl.exposeIsValidName("invalid|name")).toBe(false)
 })
