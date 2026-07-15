@@ -8,7 +8,7 @@ import { jest, expect, beforeEach } from '@jest/globals';
 
 import { Configuration, InternalConfiguration } from '../../src/config'
 import { ResourceAttributes, InternalResourceAttributes } from '../../src/attributes'
-import { AnacondaMetrics, CounterArgs, HistogramArgs, NoopMetricExporter } from '../../src/metrics'
+import { AnacondaMetrics, CounterArgs, HistogramArgs, GaugeArgs, NoopMetricExporter } from '../../src/metrics'
 
 jest.mock('@opentelemetry/sdk-metrics')
 jest.mock('@opentelemetry/exporter-metrics-otlp-http')
@@ -23,6 +23,7 @@ import type {
   Counter,
   UpDownCounter,
   Histogram,
+  Gauge,
   ObservableGauge,
   ObservableCounter,
   ObservableUpDownCounter,
@@ -32,6 +33,7 @@ import type {
 const makeCounter = () => ({ add: jest.fn() }) as unknown as jest.Mocked<Counter>;
 const makeUpDownCounter = () => ({ add: jest.fn() }) as unknown as jest.Mocked<UpDownCounter>;
 const makeHistogram = () => ({ record: jest.fn() }) as unknown as jest.Mocked<Histogram>;
+const makeGauge = () => ({ record: jest.fn() }) as unknown as jest.Mocked<Gauge>;
 
 const makeObsGauge = () =>
   ({ addCallback: jest.fn(), removeCallback: jest.fn() }) as unknown as jest.Mocked<ObservableGauge>;
@@ -58,9 +60,8 @@ export const mockedMeter: jest.Mocked<Meter> = (() => {
   m.addBatchObservableCallback = jest.fn();
   m.removeBatchObservableCallback = jest.fn();
 
-  // If your code calls a legacy/non-standard API (e.g., createGauge),
-  // attach it AFTER casting so it doesn't fight the Meter type:
-  // m.createGauge = jest.fn(() => ({ record: jest.fn() }));
+  // Gauge is not part of the Meter interface type yet in some versions, attach after cast
+  (m as any).createGauge = jest.fn(() => makeGauge());
 
   return m as jest.Mocked<Meter>;
 })();
@@ -124,6 +125,16 @@ test("verify incrementCounter and decrementCounter", () => {
     expect(metrics.incrementCounter({name: "name2", forceUpDownCounter: true, by: 2, attributes: {"reason": "test"}})).toBe(false)
 })
 
+test("verify recordGauge", () => {
+    expect(metrics.recordGauge({name: "gauge1", value: 42.5, attributes: {"reason": "test"}})).toBe(true)
+    expect(Object.keys(metrics.mapOfGauges).length).toBe(1)
+    expect(metrics.recordGauge({name: "gauge2", value: 99.9, attributes: {"reason": "test"}})).toBe(true)
+    expect(metrics.recordGauge({name: "gauge2", value: 10.0, attributes: {"reason": "test"}})).toBe(true)
+    expect(Object.keys(metrics.mapOfGauges).length).toBe(2)
+    metrics.meter = null
+    expect(metrics.recordGauge({name: "gauge3", value: 0, attributes: {"reason": "test"}})).toBe(false)
+})
+
 test("verify non-console implementation for setup and variations", () => {
     var counter = 0
     for (let authToken of [undefined, "auth_token"]) {
@@ -175,11 +186,13 @@ test("check for invalid names", () => {
     expect(metrics.decrementCounter({name: "#name", by: 1})).toBe(false)
     expect(metrics.incrementCounter({name: "name#", forceUpDownCounter: false, by: 1})).toBe(false)
     expect(metrics.recordHistogram({name: "#name#", value: 42})).toBe(false)
+    expect(metrics.recordGauge({name: "#gauge#", value: 1.0})).toBe(false)
 })
 
 test("dummy tests for argument objects (would lower coverage but could be deleteed)", () => {
     const counter = new CounterArgs()
     const histogram = new HistogramArgs()
+    const gauge = new GaugeArgs()
 })
 
 test("Test bad changeConnection URL", async () => {
