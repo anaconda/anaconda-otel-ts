@@ -161,6 +161,16 @@ export class LogRecordExporterShim implements LogRecordExporter {
         }
     }
 
+    async forceFlush(): Promise<void> {
+        if (!this._shutdown) {
+            return await this._lock.runExclusive(async () => {
+                await this._internalExporter.forceFlush();
+            });
+        } else {
+            return Promise.resolve()
+        }
+    }
+
     async shutdown(): Promise<void> {
         if (!this._shutdown) {
             return await this._lock.runExclusive(async () => {
