@@ -63,8 +63,11 @@ export class GaugeArgs {
 
 export class AnacondaMetrics extends AnacondaCommon {
     private reader: PeriodicExportingMetricReader | undefined;
+    /** @internal Exposed for test assertions only; not part of the public API. */
     mapOfCounters: Record<string, [UpDownCounter | Counter, boolean]> = {};
+    /** @internal Exposed for test assertions only; not part of the public API. */
     mapOfHistograms: Record<string, Histogram> = {};
+    /** @internal Exposed for test assertions only; not part of the public API. */
     mapOfGauges: Record<string, Gauge> = {};
     meterProvider: MeterProvider | undefined = undefined
     meter: Meter | null = null;
