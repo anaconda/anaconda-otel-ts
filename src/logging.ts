@@ -232,7 +232,8 @@ export class AnacondaLogging extends AnacondaCommon implements ATelLogger {
             return undefined
         }
         this.parentExporter = new LogRecordExporterShim(exporter!)
-        return new BatchLogRecordProcessor(this.parentExporter!, {
+        return new BatchLogRecordProcessor({
+            exporter: this.parentExporter!,
             scheduledDelayMillis: this.config.getLoggingExportIntervalMs()
         })
     }
