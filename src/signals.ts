@@ -3,7 +3,7 @@
 
 import { Configuration } from './config.js';
 import { ResourceAttributes } from './attributes.js';
-import { AnacondaMetrics, CounterArgs, HistogramArgs } from './metrics.js';
+import { AnacondaMetrics, CounterArgs, HistogramArgs, GaugeArgs } from './metrics.js';
 import { AnacondaTrace } from './traces.js';
 import { AnacondaLogging, type ATelLogger, EventArgs } from './logging.js';
 
@@ -135,6 +135,35 @@ export function recordHistogram(args: HistogramArgs): boolean {
         return false
     }
     return __metrics.recordHistogram(args); // Call the recordHistogram method on the AnacondaMetrics instance
+}
+
+/**
+ * Records an instantaneous value in a gauge metric with optional attributes.
+ *
+ * @param args - An argument list object where the `name` field is required.
+ *
+ * The args is an object defined by (in any order):
+ * ```
+ * {
+ *   name: string = "";  Required; Not supplying a name will result in no value being recorded.
+ *   value: number = 0;  Required; This field will be recorded as the instantaneous value.
+ *   attributes?: AttrMap = {}; Optional; Attributes for the gauge metric.
+ * }
+ * ```
+ *
+ * @returns `true` if the gauge was recorded successfully, `false` if metrics are not initialized.
+ *
+ * @example
+ * ```typescript
+ * recordGauge({name: "cpu.usage", value: 72.5, attributes: { "host": "node-1" }})
+ * ```
+ */
+export function recordGauge(args: GaugeArgs): boolean {
+    if (!__metrics) {
+        console.warn("*** WARNING: Metrics not initialized. Call initializeTelemetry first.")
+        return false
+    }
+    return __metrics.recordGauge(args);
 }
 
 /**

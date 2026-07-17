@@ -8,6 +8,7 @@ import {
     initializeTelemetry,
     changeSignalConnection,
     recordHistogram,
+    recordGauge,
     decrementCounter,
     incrementCounter,
     getTrace,
@@ -125,6 +126,24 @@ test("recordHistogram with metrics initialized", () => {
 
 test("recordHistogram without metrics initialized", () => {
     const result = recordHistogram({name: "test_metric", value: 42})
+
+    expect(result).toBe(false)
+    expect(console.warn).toHaveBeenCalledWith("*** WARNING: Metrics not initialized. Call initializeTelemetry first.")
+})
+
+test("recordGauge with metrics initialized", () => {
+    const config = new Configuration().setUseConsoleOutput(true)
+    const attributes = new ResourceAttributes("test_service", "0.0.1")
+
+    initializeTelemetry(config, attributes, ["metrics"])
+
+    const result = recordGauge({name: "testGauge", value: 72.5, attributes: { key: "value" }})
+
+    expect(result).toBe(true)
+})
+
+test("recordGauge without metrics initialized", () => {
+    const result = recordGauge({name: "test_gauge", value: 42.0})
 
     expect(result).toBe(false)
     expect(console.warn).toHaveBeenCalledWith("*** WARNING: Metrics not initialized. Call initializeTelemetry first.")

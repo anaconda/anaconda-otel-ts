@@ -26,6 +26,7 @@ import type {
   UpDownCounter,
   Counter,
   Histogram,
+  Gauge,
 } from '@opentelemetry/api';
 
 import type {
@@ -54,10 +55,20 @@ export class HistogramArgs {
     attributes?: AttrMap = {};
 }
 
+export class GaugeArgs {
+    name: string = "";
+    value: number = 0;
+    attributes?: AttrMap = {};
+}
+
 export class AnacondaMetrics extends AnacondaCommon {
     private reader: PeriodicExportingMetricReader | undefined;
+    /** @internal Exposed for test assertions only; not part of the public API. */
     mapOfCounters: Record<string, [UpDownCounter | Counter, boolean]> = {};
+    /** @internal Exposed for test assertions only; not part of the public API. */
     mapOfHistograms: Record<string, Histogram> = {};
+    /** @internal Exposed for test assertions only; not part of the public API. */
+    mapOfGauges: Record<string, Gauge> = {};
     meterProvider: MeterProvider | undefined = undefined
     meter: Meter | null = null;
     parentExporter: MetricExporterShim | undefined
@@ -115,6 +126,20 @@ export class AnacondaMetrics extends AnacondaCommon {
         }
         var histogram = this.getHistogram(args.name)
         histogram.record(args.value!, this.makeEventAttributes(args.attributes));
+        return true
+    }
+
+    recordGauge(args: GaugeArgs): boolean {
+        if (!this.meter) {
+            this._warn("Meter is not initialized properly. Ensure that the AnacondaMetrics instance is properly set up.")
+            return false
+        }
+        if (!this.isValidName(args.name)) {
+            this._warn(`Metric name '${args.name}' is not a valid name (^[A-Za-z][A-Za-z_0-9]+$).`)
+            return false
+        }
+        var gauge = this.getGauge(args.name)
+        gauge.record(args.value, this.makeEventAttributes(args.attributes));
         return true
     }
 
@@ -250,6 +275,15 @@ export class AnacondaMetrics extends AnacondaCommon {
         var histogram: Histogram = this.meter!.createHistogram(metricName)
         this.mapOfHistograms[metricName] = histogram
         return histogram
+    }
+
+    private getGauge(metricName: string): Gauge {
+        if (metricName in this.mapOfGauges) {
+            return this.mapOfGauges[metricName]
+        }
+        var gauge: Gauge = this.meter!.createGauge(metricName)
+        this.mapOfGauges[metricName] = gauge
+        return gauge
     }
 }
 

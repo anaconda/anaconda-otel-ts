@@ -10,6 +10,7 @@ export {
     initializeTelemetry,
     changeSignalConnection,
     recordHistogram,
+    recordGauge,
     decrementCounter,
     incrementCounter,
     getTrace,
