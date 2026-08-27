@@ -1,6 +1,49 @@
 # CHANGELOG
 We [keep a changelog.](http://keepachangelog.com/)
 
+## [v0.9.3] (2026-08-27) - [Features and Bug Fixes] Beta 4 Release
+
+### Added
+
+- Feature: Gauge metric type with `recordGauge()` public API following lazy-instantiation registry pattern.
+- Feature: Example OIDC authentication folder with code and documentation.
+- Documentation: User-facing documentation for determining signal types for projects.
+- Support: Added Node.js v26 support.
+
+### Deprecated
+
+- Node.js v20 is now deprecated.
+
+### Removed
+
+- GRPC support and default endpoint usage have been removed.
+
+### Fixed
+
+- Fixed name validation for dot-separated segments.
+- Fixed LogRecordExporterShim to match updated OTel definition.
+- Bug fixes and improvements to package logging.
+
+### Security
+
+- NA
+
+### Tickets Closed
+
+- NA (No public generated issues)
+
+### Pull Requests Merged
+* [#124](https://github.com/anaconda/anaconda-otel-ts/pull/124) - Add Gauge metric type with recordGauge public API (2026-07-17)
+* [#121](https://github.com/anaconda/anaconda-otel-ts/pull/121) - Fixing changed LogRecordExporterShim to match new definition. (2026-07-15)
+* [#120](https://github.com/anaconda/anaconda-otel-ts/pull/120) - Deprecate nodejs v20, add nodejs v26. (2026-07-15)
+* [#114](https://github.com/anaconda/anaconda-otel-ts/pull/114) - Fix name validation for dot separated segments. (2026-07-14)
+* [#102](https://github.com/anaconda/anaconda-otel-ts/pull/102) - Remove using default endpoint and GRPC support (which used it the def) (2026-05-04)
+* [#101](https://github.com/anaconda/anaconda-otel-ts/pull/101) - Bug fixes and improvements to package logging. (2026-03-25)
+* [#100](https://github.com/anaconda/anaconda-otel-ts/pull/100) - New signal documentation (2026-03-23)
+* [#92](https://github.com/anaconda/anaconda-otel-ts/pull/92) - Example OIDC auth folder with code and documentation. (2026-03-11)
+
+
+
 ## [v0.9.2] (2026-03-02) - [Features and Bug Fixes] Beta 3 Release
 
 ### Added
